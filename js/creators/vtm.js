@@ -20,6 +20,10 @@ import {
 const FREE_SPECIALTY_SKILLS = ["Academics", "Craft", "Performance", "Science"];
 const ALL_SKILLS = Object.values(SKILLS).flat();
 const OTHER = "__other";
+const GENERATION_NOTE = (g) => (g >= 14
+  ? "Blood Potency 0. Barely a vampire: weak powers, but some daylight and food are bearable."
+  : g >= 12 ? "Blood Potency 1. A typical young vampire, Embraced within living memory."
+  : "Blood Potency 2. Older, stronger blood: Disciplines hit harder, but feeding on animals and blood bags stops working.");
 const SECT_HELP = {
   Camarilla: "The old order. Enforces the Masquerade and is ruled by elders.",
   Anarch: "Rebels who reject the rule of the elders.",
@@ -84,10 +88,11 @@ export function startVtmCreator(root, session) {
         <select aria-label="Dots" data-adv="${kind}" data-i="${i}" data-prop="dots">
           ${dotsAllowed.map((n) => `<option value="${n}" ${r.dots === n ? "selected" : ""}>${n} ${n === 1 ? "dot" : "dots"}</option>`).join("")}
         </select>
-        <span class="adv-row__tools">${entry ? info(entry.help, r.name) : ""}
+        <span class="adv-row__tools">
           <button type="button" class="btn btn--small btn--ghost" data-remove="${kind}" data-i="${i}">Remove</button></span>
         ${r.name === OTHER ? `<input type="text" class="adv-row__custom" aria-label="Name" data-adv="${kind}" data-i="${i}" data-prop="custom"
           value="${esc(r.custom)}" maxlength="60" placeholder="Name">` : ""}
+        ${entry ? `<p class="option-note adv-row__note">${esc(entry.help)}</p>` : ""}
       </div>`;
   }
   const advName = (r) => (r.name === OTHER ? r.custom.trim() : r.name);
@@ -142,6 +147,7 @@ export function startVtmCreator(root, session) {
             disabled: isThin() && !e.thinGenerations.length, why: isThin() && !e.thinGenerations.length ? "Not possible for thin-bloods." : "",
           })), state.era, TEXT.era)}
           ${generations().length ? selectField({ id: "v-gen", label: "Generation", value: state.generation, placeholder: null, tip: TEXT.generation,
+            note: esc(GENERATION_NOTE(state.generation)),
             options: generations().map((g) => [g, `${ordinal(g)} generation, Blood Potency ${bloodPotency(g, null)}`]) }) : ""}`;
       },
       onInput: textInput,
@@ -153,7 +159,7 @@ export function startVtmCreator(root, session) {
           rerender();
         }
         if (e.target.name === "era") { state.era = e.target.value; rerender(); }
-        if (e.target.id === "v-gen") state.generation = Number(e.target.value);
+        if (e.target.id === "v-gen") { state.generation = Number(e.target.value); rerender(); }
       },
       validate: () => (!state.clan ? "Choose a clan." : !state.generation ? "Choose a generation." : ""),
     },
@@ -215,7 +221,8 @@ export function startVtmCreator(root, session) {
             </div>
             <div class="grid-2">
               ${selectField({ id: "v-free-skill", label: "Extra specialty: which skill", value: state.freeSpecialtySkill,
-                options: freeSkills, tip: TEXT.freeSpecialty })}
+                options: freeSkills, tip: TEXT.freeSpecialty,
+                note: state.freeSpecialtySkill ? esc(SKILL_HELP[state.freeSpecialtySkill]) : "" })}
               ${state.freeSpecialtySkill
                 ? specialtyField("v-free-spec", state.freeSpecialtySkill, state.freeSpecialty, state.freeOther, "Extra specialty")
                 : `<p class="field-note">Pick a skill first.</p>`}
@@ -305,10 +312,12 @@ export function startVtmCreator(root, session) {
           })), state.predator)}
           ${p ? `
             <div class="grid-2">
-              ${selectField({ id: "v-pred-spec", label: "Specialty", value: state.predatorSpecialty, options: p.specialties, tip: TEXT.specialties })}
+              ${selectField({ id: "v-pred-spec", label: "Specialty", value: state.predatorSpecialty, options: p.specialties, tip: TEXT.specialties,
+                note: state.predatorSpecialty ? esc(`${state.predatorSpecialty.split(" (")[0]}: ${SKILL_HELP[state.predatorSpecialty.split(" (")[0]]} You need at least one dot in it.`) : "" })}
               ${isThin() ? `<p class="locked">Thin-bloods take no Discipline dot here.</p>`
                 : selectField({ id: "v-pred-disc", label: "Discipline (+1 dot)", value: state.predatorDiscipline,
-                  options: discOptions.map((d) => [d, d]), tip: discOptions.map((d) => `${d}: ${DISCIPLINE_HELP[d]}`).join(" ") })}
+                  options: discOptions.map((d) => [d, d]), tip: "One more dot in this Discipline.",
+                  note: state.predatorDiscipline ? esc(DISCIPLINE_HELP[state.predatorDiscipline]) : "" })}
             </div>` : ""}`;
       },
       onChange(e, rerender) {
@@ -316,8 +325,8 @@ export function startVtmCreator(root, session) {
           state.predator = e.target.value; state.predatorSpecialty = ""; state.predatorDiscipline = "";
           rerender();
         }
-        if (e.target.id === "v-pred-spec") state.predatorSpecialty = e.target.value;
-        if (e.target.id === "v-pred-disc") state.predatorDiscipline = e.target.value;
+        if (e.target.id === "v-pred-spec") { state.predatorSpecialty = e.target.value; rerender(); }
+        if (e.target.id === "v-pred-disc") { state.predatorDiscipline = e.target.value; rerender(); }
       },
       validate() {
         if (!state.predator) return "Choose a predator type.";

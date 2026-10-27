@@ -167,6 +167,27 @@ export const STYLE = {
 export const ETHNICITIES = ["Anglo-American", "African", "Japanese / Korean", "Central European / Soviet",
   "Pacific Islander", "Chinese / Southeast Asian", "Black American", "Hispanic American",
   "Central / South American", "European"];
+// Languages that go with each ethnic origin (Lifepath)
+export const LANGUAGES = {
+  "Anglo-American": ["English"],
+  "African": ["Bantu", "Fanti", "Kongo", "Ganda", "Maasai", "Swahili"],
+  "Japanese / Korean": ["Japanese", "Korean"],
+  "Central European / Soviet": ["Bulgarian", "Russian", "Czech", "Polish", "Ukrainian", "Slovak"],
+  "Pacific Islander": ["Micronesian", "Tagalog", "Polynesian", "Malay", "Indonesian", "Hawaiian"],
+  "Chinese / Southeast Asian": ["Burmese", "Cantonese", "Mandarin", "Thai", "Tibetan", "Vietnamese"],
+  "Black American": ["English", "Blackfolk"],
+  "Hispanic American": ["Spanish", "English"],
+  "Central / South American": ["Spanish", "Portuguese"],
+  "European": ["English", "French", "German", "Italian", "Spanish"],
+};
+export const POINT_NOTES = {
+  50: "An ordinary person on the street.",
+  60: "A side character: capable, but not the star.",
+  70: "An important side character in the story.",
+  75: "A starting hero. A common choice for a new crew.",
+  80: "A top-tier main character.",
+};
+
 export const MOTIVATIONS = {
   trait: ["Shy and secretive", "Rebellious, antisocial, violent", "Arrogant, proud and aloof",
     "Moody, rash and headstrong", "Picky, fussy and nervous", "Stable and serious", "Silly and fluffheaded",
