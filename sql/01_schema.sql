@@ -1,3 +1,5 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
 CREATE OR REPLACE DATABASE ttrpg_forge
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
