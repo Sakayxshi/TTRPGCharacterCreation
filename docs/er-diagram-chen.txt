@@ -1,0 +1,63 @@
+flowchart TB
+    %% ---------- entities ----------
+    U[User]
+    S[GameSession]
+    C[Character]
+    W[WitcherCharacter]
+    K[Skill]
+
+    %% ---------- relationships (x:y on each leg) ----------
+    hosts{hosts}
+    joins{joins}
+    owns{owns}
+    belongs{belongs to}
+    has{has}
+    isa{{"ISA (disjoint)"}}
+
+    U ---|1| hosts ---|N| S
+    U ---|M| joins ---|N| S
+    U ---|1| owns ---|N| C
+    C ---|N| belongs ---|1| S
+    C --- isa --- W
+    W ---|M| has ---|N| K
+
+    %% ---------- attributes (key underlined) ----------
+    u1(["<u>user_id</u>"]) --- U
+    u2([username]) --- U
+    u3([created_at]) --- U
+
+    s1(["<u>session_id</u>"]) --- S
+    s2([join_code]) --- S
+    s3([game_type]) --- S
+    s4([session_name]) --- S
+    s5([created_at]) --- S
+
+    j1([joined_at]) --- joins
+
+    c1(["<u>char_id</u>"]) --- C
+    c2([name]) --- C
+    c3([age]) --- C
+    c4([gender]) --- C
+    c5([lore]) --- C
+    c6([lore_visible]) --- C
+
+    W --- w1([race])
+    W --- w2([profession])
+    W --- w3([homeland])
+    W --- w4([social_standing])
+    W --- w5([reputation])
+    W --- w6([lifepath])
+    W --- w7([coin])
+    W --- w8([run_speed]):::derived
+    W --- w9([encumbrance]):::derived
+    W --- st([stats])
+    st --- st1([INT]) & st2([REF]) & st3([DEX]) & st4([BODY]) & st5([SPD])
+    st --- st6([EMP]) & st7([CRA]) & st8([WILL]) & st9([LUCK])
+
+    has --- h1([level])
+
+    K --- k1(["<u>skill_name</u>"])
+    K --- k2([base_stat])
+    K --- k3([cost])
+
+    classDef derived stroke-dasharray: 5 5
