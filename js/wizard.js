@@ -201,7 +201,8 @@ export function textField({ id, label, value = "", max = 100, help = "", require
 }
 
 // options: strings, [value, text] pairs, or { group: [...] } for <optgroup>s
-export function selectField({ id, label, options, value = "", help = "", placeholder = "Choose", tip = "", attrs = "" }) {
+// note: a short explanation of the chosen option, shown under the field (HTML, escape it first)
+export function selectField({ id, label, options, value = "", help = "", placeholder = "Choose", tip = "", attrs = "", note = "" }) {
   const opt = (o) => {
     const [v, t] = Array.isArray(o) ? o : [o, o];
     return `<option value="${esc(v)}" ${String(v) === String(value) ? "selected" : ""}>${esc(t)}</option>`;
@@ -217,6 +218,7 @@ export function selectField({ id, label, options, value = "", help = "", placeho
         ${body}
       </select>
       ${help ? `<small>${esc(help)}</small>` : ""}
+      ${note ? `<p class="option-note">${note}</p>` : ""}
     </div>`;
 }
 

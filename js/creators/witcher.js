@@ -11,11 +11,17 @@ import {
   createWizard, stepper, poolBadge, choiceList, toggleChoice, radioCards,
   textField, selectField, review, genderField,
 } from "../wizard.js";
-import { STAT_HELP, DERIVED_HELP, SKILL_HELP, RACE_HELP, TEXT } from "../witcherHelp.js";
+import { STAT_HELP, DERIVED_HELP, SKILL_HELP, RACE_HELP, TEXT, UPBRINGING, POOL_NOTES, VIGOR_NOTES } from "../witcherHelp.js";
 import {
   STATS, SKILLS, LANGUAGES, COMBAT_SKILLS, RACES, RACE_STAT_MODS, PROFESSIONS, professionAllowed,
   HOMELANDS, socialStanding, STAT_POOLS, PROFESSION_SKILL_POINTS, CREATION_SKILL_CAP, derivedStats,
 } from "../witcherRules.js";
+
+// "Initiate of the <b>Gods ?</b>": the "?" stays on the line of the last word
+function boldWithInfo(text, tip) {
+  const i = text.lastIndexOf(" ");
+  return `<strong>${esc(text.slice(0, i + 1))}<span class="nowrap">${esc(text.slice(i + 1))}${tip}</span></strong>`;
+}
 
 export function startWitcherCreator(root, session) {
   const state = {
@@ -93,10 +99,12 @@ export function startWitcherCreator(root, session) {
           <div class="grid-2">
             <div>
               ${selectField({ id: "c-home", label: "Homeland", options: HOMELANDS, value: state.homeland, tip: TEXT.homeland })}
-              <p class="field-note">${standing ? `Social standing there: <strong>${esc(standing)}</strong>${info(TEXT.standing, "Social standing")}` : "Decides your social standing."}</p>
+              ${standing ? `<p class="option-note">Social standing there: <strong>${esc(standing)}</strong>${info(TEXT.standing, "Social standing")}</p>`
+                : `<p class="field-note">Decides your social standing.</p>`}
             </div>
             ${selectField({ id: "c-up", label: "Upbringing", value: state.upbringing,
               tip: "The family or group that raised you. It's background for your story and doesn't change any numbers.",
+              note: state.upbringing ? esc(UPBRINGING[state.upbringing]) : "",
               options: ["Aristocracy", "Merchant family", "Craftsmen", "Peasants", "Soldiers", "Scholars", "Clergy", "Street orphan"] })}
           </div>
           ${textField({ id: "c-event", label: "Most important life event", value: state.lifeEvent, max: 200 })}
@@ -107,7 +115,7 @@ export function startWitcherCreator(root, session) {
       onInput: textInput,
       onChange(e, rerender) {
         if (e.target.id === "c-home") { state.homeland = e.target.value; rerender(); }
-        if (e.target.id === "c-up") state.upbringing = e.target.value;
+        if (e.target.id === "c-up") { state.upbringing = e.target.value; rerender(); }
         if (e.target.id === "c-share") state.shareLore = e.target.checked;
       },
     },
@@ -123,13 +131,25 @@ export function startWitcherCreator(root, session) {
             const ok = professionAllowed(state.race, value);
             return {
               value, title: pr.name, text: pr.blurb, disabled: !ok,
-              extra: `Defining skill: <strong>${esc(pr.defining)}</strong>${info(SKILL_HELP[pr.defining], pr.defining)}
-                <br>Vigor ${pr.vigor}${info(TEXT.vigor, "Vigor")}`,
+              extra: `Defining skill: ${boldWithInfo(pr.defining, info(SKILL_HELP[pr.defining], pr.defining))}
+                <span class="vigor-chip" data-vigor="${pr.vigor}">Vigor <strong>${pr.vigor}</strong></span>`,
               why: ok ? "" : state.race === "witcher" ? "Witchers can only be Witchers."
                 : pr.witcherOnly ? "Only the witcher race." : "Only humans and elves can use magic.",
             };
           }), state.profession)}
           ${p ? `
+            <div class="prof-summary">
+              <div class="prof-summary__item">
+                <span class="prof-summary__label">Vigor${info(TEXT.vigor, "Vigor")}</span>
+                <span class="prof-summary__value">${p.vigor}</span>
+                <span class="prof-summary__text">${esc(VIGOR_NOTES[p.vigor])}</span>
+              </div>
+              <div class="prof-summary__item">
+                <span class="prof-summary__label">Defining skill</span>
+                <span class="prof-summary__value prof-summary__value--text">${esc(p.defining)}</span>
+                <span class="prof-summary__text">${esc(SKILL_HELP[p.defining])}</span>
+              </div>
+            </div>
             <h3>Profession skills ${poolBadge(spent(state.profSkills), PROFESSION_SKILL_POINTS)}${info(TEXT.profSkills, "Profession skills")}</h3>
             <p class="muted">Each skill from 1 to ${CREATION_SKILL_CAP}. Skills marked x2 cost 2 points per level.</p>
             ${p.languages ? choiceList("lang", `Choose ${p.languages} language${p.languages > 1 ? "s" : ""}`, LANGUAGES.map((l) => [l, SKILL_HELP[l]]), state.languages, p.languages) : ""}
@@ -174,7 +194,7 @@ export function startWitcherCreator(root, session) {
           <h2>Statistics</h2>
           <div class="row row--end" style="margin-bottom:1rem">
             ${selectField({ id: "c-pool", label: "Points from your GM", value: state.pool, tip: TEXT.pool,
-              options: STAT_POOLS.map((p) => [p.points, p.label]), placeholder: null })}
+              options: STAT_POOLS.map((p) => [p.points, p.label]), placeholder: null, note: esc(POOL_NOTES[state.pool] || "") })}
             ${state.rolled ? `<span class="pool" data-state="done">Rolled</span>` : poolBadge(used, state.pool)}
             <button type="button" class="btn" id="roll-stats" ${state.statRollUsed ? "disabled" : ""}>
               ${state.statRollUsed ? "Already rolled" : "Roll instead (1d10 per stat)"}</button>${info(TEXT.roll, "Rolling statistics")}

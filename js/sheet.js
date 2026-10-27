@@ -152,28 +152,68 @@ function skillColumns(groups) {
 async function renderWitcher(f) {
   const skills = await getWitcherSkills(f.char_id);
   const s = Object.fromEntries(W_STATS.map(({ key }) => [key, f[`stat_${key}`]]));
-  const defining = PROFESSIONS[f.profession]?.defining;
-  const group = (key) => skills.filter((sk) => (sk.skill_name === defining ? "def" : W_SKILLS[sk.skill_name]?.[0]) === key)
-    .sort((a, b) => b.level - a.level).map((sk) => ({ name: sk.skill_name, value: sk.level, help: WH.SKILL_HELP[sk.skill_name] }));
+  const prof = PROFESSIONS[f.profession];
+  const defining = prof?.defining;
+  // the stat a skill is rolled with (defining skills have their own)
+  const DEFINING_STAT = {
+    "Busking": "emp", "Patch Job": "cra", "Practiced Paranoia": "int", "Healing Hands": "cra",
+    "Magic Training": "int", "Tough As Nails": "body", "Well Traveled": "int",
+    "Initiate of the Gods": "emp", "Witcher Training": "int",
+  };
+  const statOf = (name) => (name === defining ? DEFINING_STAT[name] : W_SKILLS[name]?.[0]);
+  const der = derivedStats(s, f.race);
+  const statName = (key) => W_STATS.find((x) => x.key === key);
+
+  // one skill row: name, level, and the base you actually roll (stat + skill)
+  const row = (sk) => {
+    const key = statOf(sk.skill_name);
+    return `<tr><th scope="row">${esc(sk.skill_name)}${info(WH.SKILL_HELP[sk.skill_name], sk.skill_name)}</th>
+      <td>${sk.level}</td><td class="base">${(s[key] || 0) + sk.level}</td></tr>`;
+  };
+  const table = (title, sub, list) => (list.length ? `
+    <section class="skill-block">
+      <h3>${esc(title)}${sub ? ` <span class="muted">${esc(sub)}</span>` : ""}</h3>
+      <table class="skill-table"><thead><tr><th>Skill</th><th>Level</th><th>Base${info("What you roll with: the stat plus the skill level. Add 1d10 and beat the difficulty.", "Base")}</th></tr></thead>
+        <tbody>${list.sort((a, b) => b.level - a.level).map(row).join("")}</tbody></table>
+    </section>` : "");
+
+  const defRows = skills.filter((sk) => sk.skill_name === defining);
+  const derivedGroup = (title, items) => `
+    <section class="derived-group"><h3>${esc(title)}</h3>
+      <dl>${items.map(([k, label, v]) => `<div><dt>${esc(label)}${info(WH.DERIVED_HELP[k], label)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+    </section>`;
+
+  // lifepath text is stored as "Key: value" lines
+  const lifeRows = (f.lifepath || "").split("\n").filter(Boolean).map((line) => {
+    const i = line.indexOf(": ");
+    return i > 0 ? [line.slice(0, i), line.slice(i + 2)] : ["", line];
+  });
+
   return `
     ${head(f, [
       ["Race", RACE_LABELS[f.race]], ["Profession", PROFESSION_LABELS[f.profession]], ["Age", f.age],
       ["Gender", genderText(f.gender)], ["Homeland", f.homeland], ["Social standing", f.social_standing, WH.TEXT.standing],
       ["Reputation", f.reputation], ["Player", f.owner],
     ])}
-    <div class="stack">
-      ${panel("Statistics", `<div class="stat-row">${W_STATS.map((st) => `
-        <div class="stat"><span class="stat__label">${st.label}${info(WH.STAT_HELP[st.key], st.name)}</span><span class="stat__value">${esc(s[st.key])}</span></div>`).join("")}</div>`)}
-      ${panel("Derived", `<dl class="derived">
-        ${Object.entries(derivedStats(s, f.race)).map(([k, v]) => `<div><dt>${k}${info(WH.DERIVED_HELP[k], k)}</dt><dd>${esc(v)}</dd></div>`).join("")}
-        <div><dt>VIGOR${info(WH.DERIVED_HELP.VIGOR, "Vigor")}</dt><dd>${PROFESSIONS[f.profession]?.vigor ?? 0}</dd></div>
-        <div><dt>CROWNS${info(WH.DERIVED_HELP.CROWNS, "Crowns")}</dt><dd>${esc(f.coin)}</dd></div></dl>`)}
+    ${panel("Statistics", `<div class="w-stats">${W_STATS.map((st) => `
+      <div class="w-stat">
+        <span class="w-stat__label">${st.label}${info(WH.STAT_HELP[st.key], st.name)}</span>
+        <span class="w-stat__value">${esc(s[st.key])}</span>
+        <span class="w-stat__name">${st.name}</span>
+      </div>`).join("")}</div>`)}
+    <div class="derived-groups">
+      ${derivedGroup("Health", [["HP", "Health Points", der.HP], ["STA", "Stamina", der.STA], ["REC", "Recovery", der.REC], ["STUN", "Stun", der.STUN]])}
+      ${derivedGroup("Movement", [["RUN", "Run", `${der.RUN} m`], ["LEAP", "Leap", `${der.LEAP} m`], ["ENC", "Carry", `${der.ENC} kg`]])}
+      ${derivedGroup("Unarmed", [["PUNCH", "Punch", der.PUNCH], ["KICK", "Kick", der.KICK]])}
+      ${derivedGroup("Magic and money", [["VIGOR", "Vigor", prof?.vigor ?? 0], ["CROWNS", "Crowns", f.coin]])}
     </div>
-    ${panel("Skills", skillColumns([
-      { title: "Defining skill", rows: group("def") },
-      ...W_STATS.map((st) => ({ title: st.name, rows: group(st.key) })),
-    ]))}
-    ${textPanel("Lifepath and outfit", f.lifepath)}`;
+    ${panel("Skills", `<div class="skill-blocks">
+      ${table("Defining skill", defining ? `${statName(DEFINING_STAT[defining]).label}` : "", defRows)}
+      ${W_STATS.map((st) => table(st.name, `${st.label} ${s[st.key]}`,
+        skills.filter((sk) => sk.skill_name !== defining && statOf(sk.skill_name) === st.key))).join("")}
+    </div>`)}
+    ${lifeRows.length ? panel("Lifepath and outfit", `<dl class="life-list">${lifeRows.map(([k, v]) =>
+      `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`) : ""}`;
 }
 
 // ---------------------------------------------------------------------
