@@ -6,11 +6,12 @@
 // =====================================================================
 
 import { createWitcherCharacter, setWitcherSkill, setLoreVisible } from "../api.js";
-import { esc } from "../ui.js";
+import { esc, info } from "../ui.js";
 import {
   createWizard, stepper, poolBadge, choiceList, toggleChoice, radioCards,
-  textField, selectField, review,
+  textField, selectField, review, genderField,
 } from "../wizard.js";
+import { STAT_HELP, DERIVED_HELP, SKILL_HELP, RACE_HELP, TEXT } from "../witcherHelp.js";
 import {
   STATS, SKILLS, LANGUAGES, COMBAT_SKILLS, RACES, RACE_STAT_MODS, PROFESSIONS, professionAllowed,
   HOMELANDS, socialStanding, STAT_POOLS, PROFESSION_SKILL_POINTS, CREATION_SKILL_CAP, derivedStats,
@@ -22,10 +23,10 @@ export function startWitcherCreator(root, session) {
     homeland: "", upbringing: "", lifeEvent: "", lore: "", shareLore: false,
     profession: null, languages: [], combat: [], profSkills: {},
     pool: 70, rolled: false, stats: Object.fromEntries(STATS.map((s) => [s.key, 5])),
-    pickup: {}, coinDice: null,
+    pickup: {}, coinDice: null, statRollUsed: false,
     gear: [], clothing: "", hair: "", affectation: "",
   };
-  const FIELDS = { "c-name": "name", "c-age": "age", "c-gender": "gender", "c-event": "lifeEvent", "c-lore": "lore" };
+  const FIELDS = { "c-name": "name", "c-age": "age", "c-event": "lifeEvent", "c-lore": "lore" };
 
   const skillCost = (n) => SKILLS[n]?.[1] ?? 1;
   const spent = (levels) => Object.entries(levels).reduce((sum, [n, l]) => sum + l * skillCost(n), 0);
@@ -43,6 +44,10 @@ export function startWitcherCreator(root, session) {
   const resetProfession = () => Object.assign(state, { profession: null, languages: [], combat: [], profSkills: {}, gear: [] });
   const coin = () => (state.coinDice ? prof().coinBase * state.coinDice[0] + prof().coinBase * state.coinDice[1] : 0);
   const textInput = (e) => { if (FIELDS[e.target.id]) state[FIELDS[e.target.id]] = e.target.value; };
+  // highest level a skill can reach with the points that are left
+  const reachable = (levels, pool, name) => (levels[name] || 0) + Math.floor((pool - spent(levels)) / skillCost(name));
+  const derivedList = (f) => `<dl class="derived">${Object.entries(derivedStats(f, state.race)).map(([k, v]) =>
+    `<div><dt>${k}${info(DERIVED_HELP[k], k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
 
   const steps = [
     // 1 ---------------------------------------------------------------
@@ -54,15 +59,16 @@ export function startWitcherCreator(root, session) {
           <div class="grid-3">
             ${textField({ id: "c-name", label: "Name", value: state.name, max: 60, required: true })}
             ${textField({ id: "c-age", label: "Age", value: state.age, type: "number", attrs: 'min="10" max="1000"' })}
-            ${textField({ id: "c-gender", label: "Gender", value: state.gender, max: 30 })}
+            ${genderField("gender", state.gender)}
           </div>
           ${radioCards("race", "Choose a race", Object.entries(RACES).map(([value, r]) => ({
-            value, title: r.name, text: r.blurb,
-            extra: r.perks.map(([p, t]) => `<strong>${esc(p)}</strong> — ${esc(t)}`).join("<br>"),
+            value, title: r.name, text: r.blurb, help: RACE_HELP[value],
+            extra: r.perks.map(([p, t]) => `<strong>${esc(p)}:</strong> ${esc(t)}`).join("<br>"),
           })), state.race)}`;
       },
       onInput: textInput,
       onChange(e) {
+        if (e.target.name === "gender") state.gender = e.target.value;
         if (e.target.name === "race") {
           state.race = e.target.value;
           if (state.profession && !professionAllowed(state.race, state.profession)) resetProfession();
@@ -71,6 +77,7 @@ export function startWitcherCreator(root, session) {
       validate() {
         if (!state.name.trim()) return "Enter a name.";
         if (state.age && (state.age < 10 || state.age > 1000)) return "Age must be between 10 and 1000.";
+        if (!state.gender) return "Choose male or female.";
         return state.race ? "" : "Choose a race.";
       },
     },
@@ -83,14 +90,9 @@ export function startWitcherCreator(root, session) {
           <h2>Lifepath</h2>
           <p class="muted">Where you come from decides how people treat you. Optional.</p>
           <div class="grid-2">
-            <div class="field">
-              <label for="c-home">Homeland</label>
-              <select id="c-home">
-                <option value="">Choose…</option>
-                ${Object.entries(HOMELANDS).map(([t, places]) => `<optgroup label="${esc(t)}">${places.map((p) =>
-                  `<option ${p === state.homeland ? "selected" : ""}>${esc(p)}</option>`).join("")}</optgroup>`).join("")}
-              </select>
-              <small>${standing ? `Social standing there: <strong>${esc(standing)}</strong>` : "Decides your social standing."}</small>
+            <div>
+              ${selectField({ id: "c-home", label: "Homeland", options: HOMELANDS, value: state.homeland, tip: TEXT.homeland })}
+              <p class="field-note">${standing ? `Social standing there: <strong>${esc(standing)}</strong>${info(TEXT.standing, "Social standing")}` : "Decides your social standing."}</p>
             </div>
             ${selectField({ id: "c-up", label: "Upbringing", value: state.upbringing,
               options: ["Aristocracy", "Merchant family", "Craftsmen", "Peasants", "Soldiers", "Scholars", "Clergy", "Street orphan"] })}
@@ -119,22 +121,23 @@ export function startWitcherCreator(root, session) {
             const ok = professionAllowed(state.race, value);
             return {
               value, title: pr.name, text: pr.blurb, disabled: !ok,
-              extra: `Defining skill: <strong>${esc(pr.defining)}</strong> · Vigor ${pr.vigor}`,
+              extra: `Defining skill: <strong>${esc(pr.defining)}</strong>${info(SKILL_HELP[pr.defining], pr.defining)}
+                <br>Vigor ${pr.vigor}${info(TEXT.vigor, "Vigor")}`,
               why: ok ? "" : state.race === "witcher" ? "Witchers can only be Witchers."
                 : pr.witcherOnly ? "Only the witcher race." : "Only humans and elves can use magic.",
             };
           }), state.profession)}
           ${p ? `
-            <h3>Profession skills ${poolBadge(spent(state.profSkills), PROFESSION_SKILL_POINTS)}</h3>
-            <p class="muted">${PROFESSION_SKILL_POINTS} points across your defining skill and skill package.
-              Each skill at least 1, at most ${CREATION_SKILL_CAP}. (2) = 2 points per level.</p>
-            ${p.languages ? choiceList("lang", `Choose ${p.languages} language${p.languages > 1 ? "s" : ""}`, LANGUAGES, state.languages, p.languages) : ""}
-            ${p.combatChoices ? choiceList("combat", `Choose ${p.combatChoices} combat skills`, COMBAT_SKILLS, state.combat, p.combatChoices) : ""}
+            <h3>Profession skills ${poolBadge(spent(state.profSkills), PROFESSION_SKILL_POINTS)}${info(TEXT.profSkills, "Profession skills")}</h3>
+            <p class="muted">Each skill from 1 to ${CREATION_SKILL_CAP}. Skills marked x2 cost 2 points per level.</p>
+            ${p.languages ? choiceList("lang", `Choose ${p.languages} language${p.languages > 1 ? "s" : ""}`, LANGUAGES.map((l) => [l, SKILL_HELP[l]]), state.languages, p.languages) : ""}
+            ${p.combatChoices ? choiceList("combat", `Choose ${p.combatChoices} combat skills`, COMBAT_SKILLS.map((c) => [c, SKILL_HELP[c]]), state.combat, p.combatChoices) : ""}
             <div class="stepper-grid">
               ${profSkillList().map((n) => stepper({
-                group: "prof", key: n, label: n + (skillCost(n) === 2 ? " (2)" : ""),
+                group: "prof", key: n, label: n, cost: skillCost(n), help: SKILL_HELP[n],
                 sub: n === p.defining ? "Defining skill" : (SKILLS[n]?.[0] || "").toUpperCase(),
-                value: state.profSkills[n], min: 1, max: CREATION_SKILL_CAP,
+                value: state.profSkills[n], min: 1,
+                max: Math.min(CREATION_SKILL_CAP, reachable(state.profSkills, PROFESSION_SKILL_POINTS, n)),
               })).join("")}
             </div>` : ""}`;
       },
@@ -145,7 +148,8 @@ export function startWitcherCreator(root, session) {
         rerender();
       },
       onStep(_, key, delta) {
-        state.profSkills[key] = Math.min(CREATION_SKILL_CAP, Math.max(1, state.profSkills[key] + delta));
+        const max = Math.min(CREATION_SKILL_CAP, reachable(state.profSkills, PROFESSION_SKILL_POINTS, key));
+        state.profSkills[key] = Math.min(max, Math.max(1, state.profSkills[key] + delta));
       },
       validate() {
         const p = prof();
@@ -160,32 +164,36 @@ export function startWitcherCreator(root, session) {
     {
       title: "Statistics",
       render(body) {
-        const used = STATS.reduce((s, x) => s + state.stats[x.key], 0);
+        const used = STATS.reduce((sum, x) => sum + state.stats[x.key], 0);
+        const left = state.pool - used;
         const mods = RACE_STAT_MODS[state.race] || {};
         const f = finalStats();
         body.innerHTML = `
           <h2>Statistics</h2>
-          <div class="row" style="margin-bottom:1rem">
-            ${selectField({ id: "c-pool", label: "Points from your GM", value: state.pool,
-              options: STAT_POOLS.map((p) => [p.points, p.label]), placeholder: "—" })}
+          <div class="row row--end" style="margin-bottom:1rem">
+            ${selectField({ id: "c-pool", label: "Points from your GM", value: state.pool, tip: TEXT.pool,
+              options: STAT_POOLS.map((p) => [p.points, p.label]), placeholder: null })}
             ${state.rolled ? `<span class="pool" data-state="done">Rolled</span>` : poolBadge(used, state.pool)}
-            <button type="button" class="btn" id="roll-stats">Roll instead (1d10 × 9)</button>
+            <button type="button" class="btn" id="roll-stats" ${state.statRollUsed ? "disabled" : ""}>
+              ${state.statRollUsed ? "Already rolled" : "Roll instead (1d10 per stat)"}</button>${info(TEXT.roll, "Rolling statistics")}
           </div>
-          <p class="muted">Each stat 2–10.${Object.keys(mods).length ? ` ${esc(RACES[state.race].name)}: ${Object.entries(mods)
-            .map(([k, v]) => `${k.toUpperCase()} ${v > 0 ? "+" : ""}${v}`).join(", ")} (shown as "final").` : ""}</p>
+          <p class="muted">Each stat from 2 to 10.${Object.keys(mods).length ? ` As a ${esc(RACES[state.race].name)} some stats change after you set them${info(TEXT.race, "Race bonus")}` : ""}</p>
           <div class="stepper-grid">
-            ${STATS.map((s) => stepper({ group: "stat", key: s.key, label: `${s.label} · ${s.name}`,
-              sub: mods[s.key] ? `final ${f[s.key]}` : "", value: state.stats[s.key], min: 2, max: 10 })).join("")}
+            ${STATS.map((s) => stepper({ group: "stat", key: s.key, label: `${s.label} ${s.name}`, help: STAT_HELP[s.key],
+              sub: mods[s.key] ? `With race bonus: ${f[s.key]}` : "", value: state.stats[s.key], min: 2,
+              max: state.rolled ? 10 : Math.min(10, state.stats[s.key] + Math.max(0, left)) })).join("")}
           </div>
           <h3 style="margin-top:1.5rem">Derived</h3>
-          <dl class="derived">${Object.entries(derivedStats(f, state.race)).map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+          ${derivedList(f)}`;
         body.querySelector("#roll-stats").addEventListener("click", () => {
+          if (state.statRollUsed) return;
           for (const s of STATS) {
             let r;
             do { r = 1 + Math.floor(Math.random() * 10); } while (r <= 2);
             state.stats[s.key] = r;
           }
           state.rolled = true;
+          state.statRollUsed = true;
           this.render(body);
         });
       },
@@ -193,13 +201,13 @@ export function startWitcherCreator(root, session) {
         if (e.target.id === "c-pool") { state.pool = Number(e.target.value) || 70; state.rolled = false; rerender(); }
       },
       onStep(_, key, delta) {
+        if (state.rolled) { state.rolled = false; state.pool = STATS.reduce((sum, x) => sum + state.stats[x.key], 0); }
         state.stats[key] = Math.min(10, Math.max(2, state.stats[key] + delta));
-        state.rolled = false;
       },
       validate() {
         if (state.rolled) return "";
         const left = state.pool - STATS.reduce((s, x) => s + state.stats[x.key], 0);
-        return left === 0 ? "" : `Spend exactly ${state.pool} points (${left} left), or roll.`;
+        return left === 0 ? "" : `Spend exactly ${state.pool} points (${left} left).`;
       },
     },
     // 5 ---------------------------------------------------------------
@@ -212,16 +220,18 @@ export function startWitcherCreator(root, session) {
         const byStat = {};
         for (const [n, [stat]] of Object.entries(SKILLS)) if (!taken.has(n)) (byStat[stat] ||= []).push(n);
         body.innerHTML = `
-          <h2>Pick-up skills ${poolBadge(spent(state.pickup), pool)}</h2>
-          <p class="muted">INT + REF = ${pool} points for things learned along the way. Max ${CREATION_SKILL_CAP} each.
-            Profession skills can't be raised here. Unspent points are fine.</p>
+          <h2>Pick-up skills ${poolBadge(spent(state.pickup), pool)}${info(TEXT.pickup, "Pick-up skills")}</h2>
+          <p class="muted">INT + REF = ${pool} points. Up to ${CREATION_SKILL_CAP} each. Profession skills can't be raised here.</p>
           ${STATS.filter((s) => byStat[s.key]).map((s) => `
             <h3 class="group-title">${esc(s.name)}</h3>
             <div class="stepper-grid">${byStat[s.key].map((n) => stepper({ group: "pickup", key: n,
-              label: n + (skillCost(n) === 2 ? " (2)" : ""), value: state.pickup[n] || 0, min: 0, max: CREATION_SKILL_CAP })).join("")}</div>`).join("")}`;
+              label: n, cost: skillCost(n), help: SKILL_HELP[n], value: state.pickup[n] || 0, min: 0,
+              max: Math.min(CREATION_SKILL_CAP, reachable(state.pickup, pool, n)) })).join("")}</div>`).join("")}`;
       },
       onStep(_, key, delta) {
-        const v = Math.min(CREATION_SKILL_CAP, Math.max(0, (state.pickup[key] || 0) + delta));
+        const f = finalStats();
+        const max = Math.min(CREATION_SKILL_CAP, reachable(state.pickup, f.int + f.ref, key));
+        const v = Math.min(max, Math.max(0, (state.pickup[key] || 0) + delta));
         if (v) state.pickup[key] = v; else delete state.pickup[key];
       },
       validate() {
@@ -235,22 +245,29 @@ export function startWitcherCreator(root, session) {
       title: "Coin",
       render(body) {
         const p = prof();
+        const done = Boolean(state.coinDice);
         body.innerHTML = `
-          <h2>Coin</h2>
-          <p class="muted">${esc(p.name)}: ${p.coinBase} crowns × 2d6 (average ${p.coinBase * 7}).</p>
+          <h2>Coin${info(TEXT.coin, "Coin")}</h2>
+          <p class="muted">${esc(p.name)}: ${p.coinBase} crowns x 2d6 (average ${p.coinBase * 7}).
+            You get one roll, or you can take the average instead. Either choice is final.</p>
           <div class="row">
-            <button type="button" class="btn btn--primary" id="roll-coin">Roll 2d6</button>
-            <button type="button" class="btn" id="avg-coin">Take the average</button>
+            <button type="button" class="btn btn--primary" id="roll-coin" ${done ? "disabled" : ""}>Roll 2d6</button>
+            <button type="button" class="btn" id="avg-coin" ${done ? "disabled" : ""}>Take the average</button>
           </div>
           <div style="margin-top:1.25rem" aria-live="polite">
-            ${state.coinDice ? `<p>${state.coinDice.join(" + ")} = ${state.coinDice[0] + state.coinDice[1]} × ${p.coinBase}</p>
+            ${done ? `<p>${state.coinDice.join(" + ")} = ${state.coinDice[0] + state.coinDice[1]}, x ${p.coinBase}</p>
               <p class="dice-result">${coin()} crowns</p>` : `<p class="empty">Not rolled yet.</p>`}
           </div>`;
         body.querySelector("#roll-coin").addEventListener("click", () => {
+          if (state.coinDice) return;
           state.coinDice = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
           this.render(body);
         });
-        body.querySelector("#avg-coin").addEventListener("click", () => { state.coinDice = [3, 4]; this.render(body); });
+        body.querySelector("#avg-coin").addEventListener("click", () => {
+          if (state.coinDice) return;
+          state.coinDice = [3, 4];
+          this.render(body);
+        });
       },
       validate: () => (state.coinDice ? "" : "Roll for coin or take the average."),
     },
@@ -275,10 +292,10 @@ export function startWitcherCreator(root, session) {
             ${selectField({ id: "s-affectation", label: "Affectation", options: STYLE.affectation, value: state.affectation })}
           </div>
           ${review([
-            ["Name", esc([state.name, state.age, state.gender].filter(Boolean).join(", "))],
+            ["Name", esc([state.name, state.age, state.gender && (state.gender === "male" ? "Male" : "Female")].filter(Boolean).join(", "))],
             ["Race / profession", esc(`${RACES[state.race].name} ${p.name}`)],
             ["Homeland", esc(state.homeland ? `${state.homeland} (${socialStanding(state.race, state.homeland)})` : "")],
-            ["Statistics", `<span class="mono">${STATS.map((s) => `${s.label} ${f[s.key]}`).join(" · ")}</span>`],
+            ["Statistics", STATS.map((s) => `${s.label} ${f[s.key]}`).join(", ")],
             ["Skills", esc(Object.entries({ ...state.profSkills, ...state.pickup }).map(([n, l]) => `${n} ${l}`).join(", "))],
             ["Coin", `${coin()} crowns`],
             ["Backstory", state.lore ? (state.shareLore ? "shared with the party" : "private (you and the GM)") : ""],
@@ -309,7 +326,7 @@ export function startWitcherCreator(root, session) {
       ].filter(Boolean).join("\n");
       const { char_id } = await createWitcherCharacter({
         session_id: session.session_id, name: state.name.trim(),
-        age: state.age ? Number(state.age) : null, gender: state.gender.trim(), lore: state.lore.trim(),
+        age: state.age ? Number(state.age) : null, gender: state.gender, lore: state.lore.trim(),
         race: state.race, profession: state.profession, homeland: state.homeland,
         social_standing: socialStanding(state.race, state.homeland), lifepath,
         stats: finalStats(), coin: coin(),

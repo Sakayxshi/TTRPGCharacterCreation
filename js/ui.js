@@ -93,11 +93,114 @@ export function initials(name) {
   return String(name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
-// ◆◆◇◇◇ display (read-only)
+// Filled/empty dots (read-only), with the number next to them
 export function dots(n, total = 5) {
-  return `<span class="dots" role="img" aria-label="${n} of ${total}">${Array.from({ length: total }, (_, i) =>
-    `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>`;
+  return `<span class="dots-wrap"><span class="dots" aria-hidden="true">${Array.from({ length: total }, (_, i) =>
+    `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span><span class="dots-num" aria-label="${n} of ${total}">${n}</span></span>`;
 }
+
+// ---------------------------------------------------------------------
+// Explanations: a small "?" button next to a name. Hovering or focusing it
+// shows the text; clicking pins it open until you click elsewhere or
+// press Escape. One shared bubble serves the whole page.
+// ---------------------------------------------------------------------
+export function info(text, title = "") {
+  if (!text) return "";
+  return `<button type="button" class="info" data-tip="${esc(text)}" data-tip-title="${esc(title)}"
+    aria-label="${esc(title ? `What is ${title}?` : "Explain")}" aria-expanded="false">?</button>`;
+}
+
+let tip = null;
+let tipFor = null;   // button the bubble currently belongs to
+let pinned = null;   // button that was clicked
+let hideTimer = 0;
+
+function tipBubble() {
+  if (tip) return tip;
+  tip = document.createElement("div");
+  tip.id = "tip";
+  tip.className = "tip";
+  tip.setAttribute("role", "tooltip");
+  tip.hidden = true;
+  document.body.append(tip);
+  // the pointer may move onto the bubble without it closing (WCAG 1.4.13)
+  tip.addEventListener("pointerenter", () => clearTimeout(hideTimer));
+  tip.addEventListener("pointerleave", () => { if (!pinned) hideSoon(); });
+  return tip;
+}
+
+function placeTip() {
+  if (!tipFor || !tip || tip.hidden) return;
+  if (!tipFor.isConnected) { hideTip(true); return; }
+  const r = tipFor.getBoundingClientRect();
+  const w = tip.offsetWidth;
+  const h = tip.offsetHeight;
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+  const below = r.bottom + 8;
+  const top = below + h > innerHeight - 8 && r.top - h - 8 > 8 ? r.top - h - 8 : below;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+function showTip(btn) {
+  clearTimeout(hideTimer);
+  const t = tipBubble();
+  if (tipFor && tipFor !== btn) tipFor.removeAttribute("aria-describedby");
+  tipFor = btn;
+  const title = btn.dataset.tipTitle;
+  t.innerHTML = `${title ? `<strong>${esc(title)}</strong>` : ""}<span>${esc(btn.dataset.tip)}</span>`;
+  t.hidden = false;
+  btn.setAttribute("aria-describedby", "tip");
+  placeTip();
+}
+
+function hideTip(force = false) {
+  if (pinned && !force) return;
+  if (pinned) pinned.setAttribute("aria-expanded", "false");
+  pinned = null;
+  if (tipFor) tipFor.removeAttribute("aria-describedby");
+  tipFor = null;
+  if (tip) tip.hidden = true;
+}
+
+function hideSoon() {
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => hideTip(), 150);
+}
+
+document.addEventListener("pointerover", (e) => {
+  const btn = e.target.closest?.(".info");
+  if (btn && !pinned) showTip(btn);
+});
+document.addEventListener("pointerout", (e) => {
+  const btn = e.target.closest?.(".info");
+  if (btn && !pinned && !btn.contains(e.relatedTarget)) hideSoon();
+});
+document.addEventListener("focusin", (e) => {
+  const btn = e.target.closest?.(".info");
+  if (btn && !pinned) showTip(btn);
+});
+document.addEventListener("focusout", (e) => {
+  if (e.target.closest?.(".info") && !pinned) hideSoon();
+});
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest?.(".info");
+  if (btn) {
+    // the "?" often sits inside a <label>: don't let the click pick that option
+    e.preventDefault();
+    e.stopPropagation();
+    if (pinned === btn) { hideTip(true); return; }
+    if (pinned) pinned.setAttribute("aria-expanded", "false");
+    pinned = btn;
+    btn.setAttribute("aria-expanded", "true");
+    showTip(btn);
+    return;
+  }
+  if (pinned && !tip?.contains(e.target)) hideTip(true);
+}, true);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(true); });
+addEventListener("scroll", placeTip, { passive: true, capture: true });
+addEventListener("resize", placeTip);
 
 export const PROFESSION_LABELS = {
   bard: "Bard", craftsman: "Craftsman", criminal: "Criminal", doctor: "Doctor", mage: "Mage",
