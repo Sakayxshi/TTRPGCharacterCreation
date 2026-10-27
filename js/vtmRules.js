@@ -101,7 +101,7 @@ export const PREDATORS = {
     name: "Bagger", blurb: "You steal or buy blood bags, from blood banks and the black market.",
     specialties: ["Larceny (Lock-picking)", "Streetwise (Black Market)"], disciplines: ["Blood Sorcery", "Obfuscate"],
     tremereOnly: "Blood Sorcery", humanity: 0, potency: 0,
-    gains: "Iron Gullet (•••) to drink rancid blood; an Enemy (••) who wants you gone.",
+    gains: "Iron Gullet (3) to drink rancid blood; an Enemy (2) who wants you gone.",
   },
   blood_leech: {
     name: "Blood Leech", blurb: "You feed on other vampires. Taboo, dangerous and powerful.",
@@ -111,17 +111,17 @@ export const PREDATORS = {
   cleaver: {
     name: "Cleaver", blurb: "You feed on your own mortal family or friends, in secret.",
     specialties: ["Persuasion (Gaslighting)", "Subterfuge (Coverups)"], disciplines: ["Dominate", "Animalism"],
-    humanity: 0, potency: 0, gains: "Herd (••); Dark Secret: Cleaver (•).",
+    humanity: 0, potency: 0, gains: "Herd (2); Dark Secret: Cleaver (1).",
   },
   consensualist: {
     name: "Consensualist", blurb: "You only feed from people who agree to it.",
     specialties: ["Medicine (Phlebotomy)", "Persuasion (Victims)"], disciplines: ["Auspex", "Fortitude"],
-    humanity: 1, potency: 0, gains: "Dark Secret: Masquerade breacher (•); Prey Exclusion: non-consenting (•).",
+    humanity: 1, potency: 0, gains: "Dark Secret: Masquerade breacher (1); Prey Exclusion: non-consenting (1).",
   },
   farmer: {
     name: "Farmer", blurb: "You feed only from animals and refuse to hurt people.",
     specialties: ["Animal Ken (specific animal)", "Survival (Hunting)"], disciplines: ["Animalism", "Protean"],
-    humanity: 1, potency: 0, gains: "Feeding Flaw: Vegan (••).",
+    humanity: 1, potency: 0, gains: "Feeding Flaw: Vegan (2).",
   },
   osiris: {
     name: "Osiris", blurb: "A celebrity or cult leader. Your followers feed you.",
@@ -132,18 +132,18 @@ export const PREDATORS = {
   sandman: {
     name: "Sandman", blurb: "You feed from people while they sleep.",
     specialties: ["Medicine (Anesthetics)", "Stealth (Break-in)"], disciplines: ["Auspex", "Obfuscate"],
-    humanity: 0, potency: 0, gains: "Resources (•).",
+    humanity: 0, potency: 0, gains: "Resources (1).",
   },
   scene_queen: {
     name: "Scene Queen", blurb: "You rule a subculture and feed on its admirers.",
     specialties: ["Etiquette (specific scene)", "Leadership (specific scene)", "Streetwise (specific scene)"],
     disciplines: ["Dominate", "Potence"], humanity: 0, potency: 0,
-    gains: "Fame (•); Contacts (•); Influence Flaw (•) or Prey Exclusion (•).",
+    gains: "Fame (1); Contacts (1); Influence Flaw (1) or Prey Exclusion (1).",
   },
   siren: {
     name: "Siren", blurb: "You feed during sex or seduction.",
     specialties: ["Persuasion (Seduction)", "Subterfuge (Seduction)"], disciplines: ["Fortitude", "Presence"],
-    humanity: 0, potency: 0, gains: "Looks: Beautiful (••); an Enemy (•), a jilted lover.",
+    humanity: 0, potency: 0, gains: "Looks: Beautiful (2); an Enemy (1), a jilted lover.",
   },
 };
 

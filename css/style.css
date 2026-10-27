@@ -92,7 +92,6 @@ a { color: var(--accent); }
   color: var(--muted);
   text-decoration: none;
 }
-a.home-link::before { content: "← "; }
 a.home-link:hover { color: var(--ink); }
 .header-tools, #user-slot, #theme-slot { display: flex; align-items: center; gap: 0.6rem; }
 .school-picker select { padding: 0.3rem 0.5rem; font-size: 0.85rem; width: auto; }
@@ -228,13 +227,13 @@ input:user-invalid, select:user-invalid { border-color: var(--danger); }
 }
 .choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .choice:hover { border-color: var(--accent); }
-.choice:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.choice:has(input:checked) .choice__title::after { content: " ✓"; color: var(--accent); }
+.choice:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
 .choice:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
-.choice:has(input:disabled) { opacity: 0.45; cursor: not-allowed; }
+.choice:has(input:disabled) { cursor: not-allowed; border-style: dashed; }
+.choice:has(input:disabled) :is(.choice__title, .choice__text) { opacity: 0.5; }
 .choice__title { font-family: var(--font-head); font-weight: 700; display: block; margin-bottom: 0.25rem; }
 .choice__text { font-size: 0.88rem; color: var(--muted); display: block; }
-.choice__why { font-size: 0.8rem; color: var(--danger); display: block; margin-top: 0.35rem; }
+.choice__why { font-size: 0.85rem; font-weight: 600; color: var(--danger); display: block; margin-top: 0.5rem; }
 .choice__extra { margin-top: 0.5rem; }
 .group-title { margin: 1.1rem 0 0.5rem; font-size: 0.85rem; color: var(--accent); }
 
@@ -342,7 +341,6 @@ input:user-invalid, select:user-invalid { border-color: var(--danger); }
   border-radius: var(--radius-small);
   padding: 0.6rem 0.75rem;
 }
-.locked::before { content: "🔒"; }
 
 .visibility-note { font-size: 0.85rem; color: var(--muted); }
 .visibility-note ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
@@ -366,9 +364,12 @@ input:user-invalid, select:user-invalid { border-color: var(--danger); }
   cursor: pointer;
   counter-increment: step;
 }
-.steps button::before { content: counter(step) ". "; }
-.steps button[aria-current="step"] { color: var(--ink); border-top-color: var(--accent); }
+.steps__num { display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
 .steps button[data-done="true"] { color: var(--ink); border-top-color: var(--ok); }
+.steps button[aria-current="step"] {
+  color: var(--accent-ink); background: var(--accent);
+  border-color: var(--accent); border-top-color: var(--accent);
+}
 .steps button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .step[hidden] { display: none; }
@@ -527,3 +528,116 @@ input:user-invalid, select:user-invalid { border-color: var(--danger); }
 .system-badge[data-system-badge="witcher"] { border-color: #8a96a3; color: #b7c2cd; }
 .system-badge[data-system-badge="vtm"] { border-color: #a3222b; color: #e0535c; }
 .system-badge[data-system-badge="cyberpunk"] { border-color: #e1251b; color: #ff6a5f; }
+
+
+/* ---------------- explanations: "?" buttons and the bubble ---------------- */
+.info {
+  display: inline-grid; place-items: center;
+  width: 1.15rem; height: 1.15rem; margin-left: 0.35rem;
+  padding: 0; vertical-align: 0.1em;
+  font: 700 0.72rem/1 var(--font-body);
+  color: var(--muted); background: transparent;
+  border: 1px solid currentColor; border-radius: 50%;
+  cursor: help;
+  position: relative; z-index: 2;   /* above the invisible radio inside choice cards */
+}
+.info:hover, .info:focus-visible, .info[aria-expanded="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.tip {
+  position: fixed; z-index: 1000;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 0.6rem 0.75rem;
+  background: #111316; color: #f1efea;
+  border: 1px solid #3a3f47; border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  font: 400 0.88rem/1.45 var(--font-body);
+  text-transform: none; letter-spacing: normal;
+}
+.tip strong { display: block; margin-bottom: 0.2rem; font-weight: 700; }
+
+/* ---------------- small additions to the controls ---------------- */
+.cost-tag {
+  display: inline-block; margin-left: 0.35rem; padding: 0 0.3rem;
+  font-size: 0.7rem; font-weight: 700; border: 1px solid var(--line-strong); border-radius: 3px; color: var(--muted);
+}
+.stepper--set { border-color: var(--accent); }
+.stepper__control output, .pool, .derived dd, .stat__value, .dots-num, .dot-picker__value, .dice-result { font-variant-numeric: tabular-nums; }
+.choices legend .count, legend .count { font-weight: 400; color: var(--muted); margin-left: 0.4rem; }
+.check-list label .info { margin-left: 0; }
+
+.dots-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
+.dots-num { min-width: 1ch; font-weight: 700; font-size: 0.9rem; }
+.dot-picker__value { min-width: 1.4rem; text-align: right; font-weight: 700; font-size: 1rem; margin-left: 0.3rem; }
+.dot-picker__clear { width: 22px; height: 22px; font-size: 0.75rem; font-weight: 700; }
+.dot-picker__clear span { display: grid; place-items: center; width: 16px; height: 16px; border: 1px dashed var(--line-strong); border-radius: 50%; }
+.dot-picker__clear:has(input:checked) span { border-style: solid; border-color: var(--accent); color: var(--accent); }
+
+.spread-status { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0.5rem 0 1rem; }
+.spread-status li {
+  display: grid; padding: 0.4rem 0.8rem; min-width: 6.5rem;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-small); background: var(--surface-2);
+}
+.spread-status__level { font-size: 0.78rem; color: var(--muted); }
+.spread-status__count { font-weight: 700; font-size: 1.05rem; }
+.spread-status li[data-state="done"] { border-color: var(--ok); }
+.spread-status li[data-state="done"] .spread-status__count { color: var(--ok); }
+.spread-status li[data-state="over"] { border-color: var(--danger); }
+.spread-status li[data-state="over"] .spread-status__count { color: var(--danger); }
+
+/* Male / Female */
+.segmented { border: 0; padding: 0; margin: 0 0 0.9rem; min-width: 0; }
+.segmented legend { padding: 0; margin-bottom: 0.3rem; }
+.segmented__options { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.segmented__options label { position: relative; cursor: pointer; }
+.segmented__options input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.segmented__options span {
+  display: block; text-align: center; padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-small); background: var(--surface-2); font-weight: 600;
+}
+.segmented__options input:checked + span { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.segmented__options input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.grid-2, .grid-3 { align-items: start; }
+.row--end { align-items: flex-end; }
+.row--end .field { margin-bottom: 0; }
+.input-with-button { display: grid; grid-template-columns: 1fr auto; gap: 0.4rem; }
+.input-with-button .btn { padding-block: 0; }
+.field-note { font-size: 0.85rem; color: var(--muted); margin: -0.4rem 0 0.9rem; }
+.visibility-pick { border: 0; padding: 0; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+.visibility-pick legend { padding: 0; margin-bottom: 0.4rem; width: 100%; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.4rem; }
+.tag { display: inline-flex; align-items: center; padding: 0.1rem 0.45rem; border: 1px solid var(--line-strong); border-radius: 4px; font-weight: 600; color: var(--ink); font-size: 0.82rem; }
+.bane { display: block; }
+.adv-row { grid-template-columns: minmax(0, 1fr) 7rem auto; align-items: center; }
+.adv-row__tools { display: inline-flex; align-items: center; gap: 0.25rem; }
+.adv-row__custom { grid-column: 1 / -1; }
+.spec-field .field { margin-bottom: 0.4rem; }
+
+/* ---------------- dropdowns ----------------
+   Browsers that support customizable <select> (appearance: base-select)
+   get a list styled like the rest of the page; the others keep their
+   normal dropdown. */
+@supports (appearance: base-select) {
+  select, select::picker(select) { appearance: base-select; }
+  select { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; cursor: pointer; }
+  select::picker-icon { color: var(--muted); transition: rotate 0.15s; }
+  select:open::picker-icon { rotate: 180deg; }
+  select::picker(select) {
+    margin-top: 4px; padding: 0.3rem;
+    max-height: min(22rem, 60vh);
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: var(--radius-small);
+    box-shadow: 0 10px 28px rgb(0 0 0 / 0.4);
+  }
+  select option {
+    padding: 0.5rem 0.7rem; border-radius: calc(var(--radius-small) - 2px);
+    border-left: 3px solid transparent;
+  }
+  select option::checkmark { display: none; }
+  select option:hover, select option:focus-visible { background: var(--surface-2); }
+  select option:checked { border-left-color: var(--accent); font-weight: 700; }
+  select optgroup { font-weight: 700; color: var(--muted); font-size: 0.8rem; padding: 0.4rem 0.4rem 0; }
+  select optgroup option { font-size: 1rem; color: var(--ink); font-weight: 400; }
+  .school-picker select { min-width: 12rem; }
+}
+/* "?" on coloured labels takes the label's own colour */
+.stat__label .info, .panel__title .info { color: inherit; border-color: currentColor; }

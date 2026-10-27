@@ -44,7 +44,7 @@ async function start() {
       <div>
         <p class="eyebrow">${esc(SYSTEMS[session.game_type].name)}</p>
         <h1>${esc(session.session_name)}</h1>
-        <p class="muted">GM ${esc(session.gm_name)} · <span class="badge badge--accent">${isGm ? "You are the GM" : "Player"}</span></p>
+        <p class="muted">${isGm ? "You are the GM" : `GM: ${esc(session.gm_name)}`}</p>
       </div>
       <div class="code-box">
         <span class="muted">Code</span>
@@ -84,7 +84,7 @@ async function start() {
   $("#copy").addEventListener("click", async (e) => {
     try {
       await navigator.clipboard.writeText(inviteLink);
-      e.target.textContent = "Copied ✓";
+      e.target.textContent = "Copied";
     } catch {
       e.target.textContent = inviteLink;
     }
@@ -95,15 +95,19 @@ function renderCharacters(characters, me, isGm) {
   if (!characters.length) return `<p class="empty">No characters yet.</p>`;
   return `<div class="cards">${characters.map((c) => {
     const mine = c.owner === me.username;
+    // Cyberpunk: lead with the handle; the real name only if it's visible
+    const title = c.handle || c.name;
+    const subtitle = c.handle && c.name ? c.name : "";
     const detail = [
       c.race && RACE_LABELS[c.race], c.profession && PROFESSION_LABELS[c.profession],
       c.clan && CLANS[c.clan]?.name, c.sect, c.cyberpunk_role && ROLES[c.cyberpunk_role]?.name,
     ].filter(Boolean).join(" · ");
     return `
       <article class="char-card">
-        <div class="portrait" aria-hidden="true">${esc(initials(c.name))}</div>
+        <div class="portrait" aria-hidden="true">${esc(initials(title))}</div>
         <div>
-          <h3>${esc(c.name)}</h3>
+          <h3>${esc(title)}</h3>
+          ${subtitle ? `<div class="meta">${esc(subtitle)}</div>` : ""}
           <div class="meta">${esc(detail)}${c.age != null ? ` · ${esc(c.age)} yrs` : ""}</div>
           <div class="meta">${mine ? "Your character" : esc(c.owner)}</div>
           ${c.lore
