@@ -1,24 +1,119 @@
 <!DOCTYPE html>
-
-
 <html lang="en">
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your games</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
     <link rel="stylesheet" href="css/style.css">
-    
-    <title>TTRPG Forge</title>
-
-
-
+    <script type="module" src="js/home.js"></script>
 </head>
 <body>
-    
+    <header class="site-header">
+        <span class="home-link">Tabletop characters</span>
+        <div class="header-tools"><div id="user-slot"></div></div>
+    </header>
 
+    <main>
+        <!-- Shown when nobody is logged in -->
+        <section id="auth" hidden class="auth">
+            <h1>Log in</h1>
+            <p class="muted">Create or join a tabletop game and build your character for it.
+                Supports The Witcher TRPG, Vampire: The Masquerade (5th ed.) and Cyberpunk 2020.</p>
+            <div class="panel">
+                <div class="tabs" role="tablist">
+                    <button type="button" role="tab" id="tab-login" aria-selected="true" aria-controls="login-form">Log in</button>
+                    <button type="button" role="tab" id="tab-signup" aria-selected="false" aria-controls="signup-form">Create account</button>
+                </div>
 
-  
-    <script src="js/home.js" type="module"></script>
-    
+                <form id="login-form" role="tabpanel" aria-labelledby="tab-login">
+                    <div class="field">
+                        <label for="login-name">Username</label>
+                        <input type="text" id="login-name" name="username" autocomplete="username" required>
+                    </div>
+                    <div class="field">
+                        <label for="login-pass">Password</label>
+                        <input type="password" id="login-pass" name="password" autocomplete="current-password" required>
+                    </div>
+                    <p id="login-msg" class="message" role="alert" hidden></p>
+                    <button type="submit" class="btn btn--primary">Log in</button>
+
+                    <details class="demo">
+                        <summary>Demo accounts</summary>
+                        <ul id="demo-list" class="demo-list"></ul>
+                    </details>
+                </form>
+
+                <form id="signup-form" role="tabpanel" aria-labelledby="tab-signup" hidden>
+                    <div class="field">
+                        <label for="signup-name">Username</label>
+                        <input type="text" id="signup-name" name="username" autocomplete="username"
+                               required minlength="3" maxlength="32" pattern="[a-z0-9_]{3,32}"
+                               aria-describedby="signup-name-help">
+                        <small id="signup-name-help">3–32 characters: lowercase letters, numbers and _. It is also your database account name.</small>
+                    </div>
+                    <div class="field">
+                        <label for="signup-pass">Password</label>
+                        <input type="password" id="signup-pass" name="password" autocomplete="new-password"
+                               required minlength="10" aria-describedby="signup-pass-help">
+                        <small id="signup-pass-help">At least 10 characters. Never stored: the database keeps only an ED25519 key derived from it.</small>
+                    </div>
+                    <p id="signup-msg" class="message" role="alert" hidden></p>
+                    <button type="submit" class="btn btn--primary">Create account</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Shown when logged in -->
+        <section id="play" hidden class="stack">
+            <h1>Your games</h1>
+            <section class="panel">
+                <ul id="my-sessions" class="session-list"></ul>
+            </section>
+
+            <div class="grid-2">
+                <form id="join-form" class="panel">
+                    <h2 class="panel__title">Join a game</h2>
+                    <div class="field">
+                        <label for="join-code">Join code</label>
+                        <input type="text" id="join-code" name="join_code" class="mono code-input"
+                               required minlength="6" maxlength="6" autocomplete="off"
+                               autocapitalize="characters" spellcheck="false" aria-describedby="join-help">
+                        <small id="join-help">The 6-character code from your GM.</small>
+                    </div>
+                    <p id="join-msg" class="message" role="alert" hidden></p>
+                    <button type="submit" class="btn btn--primary">Join as player</button>
+                </form>
+
+                <form id="create-form" class="panel">
+                    <h2 class="panel__title">New game</h2>
+                    <div class="field">
+                        <label for="session-name">Name</label>
+                        <input type="text" id="session-name" name="session_name" maxlength="100" required>
+                    </div>
+                    <fieldset class="choices choices--compact">
+                        <legend>System</legend>
+                        <label class="choice">
+                            <input type="radio" name="game_type" value="witcher" required checked>
+                            <span class="choice__title">The Witcher TRPG</span>
+                        </label>
+                        <label class="choice">
+                            <input type="radio" name="game_type" value="vtm">
+                            <span class="choice__title">Vampire: The Masquerade</span>
+                        </label>
+                        <label class="choice">
+                            <input type="radio" name="game_type" value="cyberpunk">
+                            <span class="choice__title">Cyberpunk 2020</span>
+                        </label>
+                    </fieldset>
+                    <p id="create-msg" class="message" role="alert" hidden></p>
+                    <button type="submit" class="btn btn--primary">Create game</button>
+                    <p class="muted small">You become its Game Master.</p>
+                </form>
+            </div>
+        </section>
+    </main>
 </body>
 </html>
