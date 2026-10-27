@@ -10,7 +10,7 @@ import { createWizard, stepper, poolBadge, choiceList, toggleChoice, radioCards,
 import { STAT_HELP, DERIVED_HELP, SKILL_HELP, TEXT } from "../cyberpunkHelp.js";
 import {
   STATS, POINT_OPTIONS, SKILLS, STAT_GROUP_NAMES, ROLES, CAREER_POINTS, monthlySalary, derived, btm,
-  STYLE, ETHNICITIES, MOTIVATIONS, MOTIVATION_LABELS, d,
+  STYLE, ETHNICITIES, MOTIVATIONS, MOTIVATION_LABELS, d, LANGUAGES, POINT_NOTES,
 } from "../cyberpunkRules.js";
 
 export function startCyberpunkCreator(root, session) {
@@ -115,7 +115,7 @@ export function startCyberpunkCreator(root, session) {
           ], state.method, TEXT.method)}
           <div class="row row--end" style="margin:.5rem 0 1rem">
             ${state.method === "cinematic" ? selectField({ id: "p-pool", label: "Character points", value: state.pool, tip: TEXT.points,
-              options: POINT_OPTIONS.map((p) => [p.points, p.label]), placeholder: null }) : ""}
+              options: POINT_OPTIONS.map((p) => [p.points, p.label]), placeholder: null, note: esc(POINT_NOTES[state.pool] || "") }) : ""}
             ${state.method === "random" ? `<button type="button" class="btn" id="roll-pool" ${state.poolDice ? "disabled" : ""}>
               ${state.poolDice ? "Already rolled" : "Roll 9d10"}</button>` : ""}
             ${fast ? `<button type="button" class="btn" id="roll-fast" ${state.fastRolled ? "disabled" : ""}>
@@ -233,18 +233,22 @@ export function startCyberpunkCreator(root, session) {
                 <button type="button" class="btn btn--small" data-roll="${k}">Roll 1d10</button></div>`).join("")}
           </div>
           <div class="grid-2" style="margin-top:1rem">
-            ${selectField({ id: "p-eth", label: "Ethnic origin", options: ETHNICITIES, value: state.ethnicity })}
-            ${textField({ id: "p-lang", label: "Native language", value: state.language, max: 40 })}
+            ${selectField({ id: "p-eth", label: "Ethnic origin", options: ETHNICITIES, value: state.ethnicity,
+              tip: "Where your family comes from. It decides which native language you grew up with.",
+              note: state.ethnicity ? esc(`Native language options: ${LANGUAGES[state.ethnicity].join(", ")}.`) : "" })}
+            ${state.ethnicity ? selectField({ id: "p-lang", label: "Native language", options: LANGUAGES[state.ethnicity], value: state.language,
+              note: "You speak it fluently, on top of English (the street tongue)." }) : `<p class="field-note">Choose an ethnic origin first.</p>`}
           </div>`;
         body.querySelectorAll("[data-roll]").forEach((b) => b.addEventListener("click", () => {
           state[b.dataset.roll] = STYLE[b.dataset.roll][d(10) - 1]; this.render(body);
         }));
       },
       onInput: textInput,
-      onChange(e) {
+      onChange(e, rerender) {
         const k = e.target.id?.replace("p-", "");
         if (["clothes", "hair", "affectations"].includes(k)) state[k] = e.target.value;
-        if (e.target.id === "p-eth") state.ethnicity = e.target.value;
+        if (e.target.id === "p-eth") { state.ethnicity = e.target.value; state.language = LANGUAGES[state.ethnicity]?.[0] || ""; rerender(); }
+        if (e.target.id === "p-lang") state.language = e.target.value;
       },
     },
     // 6 ---------------------------------------------------------------

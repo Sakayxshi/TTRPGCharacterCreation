@@ -109,6 +109,30 @@ export const RACE_HELP = {
   witcher: "A mutated monster hunter. Fast and resilient, but feared nearly everywhere. Can only take the Witcher profession.",
 };
 
+export const UPBRINGING = {
+  "Aristocracy": "Raised among nobles: fine manners, a good education, and rivals at court.",
+  "Merchant family": "Grew up around trade. You know what things are worth, and what people want.",
+  "Craftsmen": "A workshop childhood: practical, hard-working and handy with tools.",
+  "Peasants": "Village life: hard work, simple food and a healthy fear of what lives in the woods.",
+  "Soldiers": "An army family: discipline, drills and stories of old wars.",
+  "Scholars": "Raised among books and teachers at an academy or temple school.",
+  "Clergy": "Brought up in a temple, surrounded by priests and faith.",
+  "Street orphan": "No family. You survived on the streets by wits and luck.",
+};
+
+export const POOL_NOTES = {
+  60: "Ordinary people of the Continent.",
+  70: "Capable adventurers. The usual choice for a new party.",
+  75: "Above-average heroes.",
+  80: "Legendary figures, on the level of Geralt or Yennefer.",
+};
+
+export const VIGOR_NOTES = {
+  0: "No magic. This profession can't cast spells.",
+  2: "A little magic: witcher Signs or priestly invocations.",
+  5: "A trained spellcaster: mages can channel the most chaos.",
+};
+
 export const TEXT = {
   defining: "Your profession's special skill. Only that profession has it, and it starts at least at 1.",
   vigor: "How much magic you can channel safely each round. 0 means you can't cast magic.",
