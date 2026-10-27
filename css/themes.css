@@ -22,10 +22,11 @@ body[data-system="witcher"] {
   --mark: #962c2c;          /* the one strong colour: buttons, badges */
   --mark-ink: #ffffff;
   --danger: #e0645a;
-  --font-head: "Cormorant SC", Georgia, serif;
-  --font-body: "Alegreya Sans", system-ui, sans-serif;
+  --font-head: "Spectral", Georgia, serif;
+  --font-body: "Source Sans 3", system-ui, sans-serif;
+  --font-mono: "Source Sans 3", system-ui, sans-serif;   /* numbers use tabular figures instead */
   --head-case: none;
-  --head-spacing: 0.04em;
+  --head-spacing: 0.01em;
   --radius: 4px;
   --radius-small: 3px;
 }
@@ -51,15 +52,16 @@ body[data-system="witcher"] .panel__title { font-size: 1.1rem; font-weight: 700;
 body[data-system="witcher"] .btn--primary { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
 body[data-system="witcher"] .badge--accent { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
 body[data-system="witcher"] .stat { background: var(--bg); }
-body[data-system="witcher"] .stat__value { font-family: "Cormorant SC", Georgia, serif; font-size: 1.8rem; line-height: 1.1; }
+body[data-system="witcher"] .stat__value { font-family: "Spectral", Georgia, serif; font-size: 1.7rem; line-height: 1.1; }
 body[data-system="witcher"] .portrait {
   border-radius: 6px;
   border: 1px solid var(--line-strong);
   background: var(--bg);
   color: var(--accent);
-  font-family: "Cormorant SC", Georgia, serif;
+  font-family: "Spectral", Georgia, serif;
 }
-body[data-system="witcher"] .steps button[aria-current="step"] { border-top-color: var(--mark); }
+body[data-system="witcher"] .steps button[aria-current="step"] { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
+body[data-system="witcher"] .segmented__options input:checked + span { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
 
 /* ---------------------------------------------------------------------
    VAMPIRE: THE MASQUERADE (5th edition)
@@ -69,23 +71,27 @@ body[data-system="vtm"] {
   --bg: #08080a;
   --surface: #0e0d10;
   --surface-2: #131216;
-  --line: #3a1418;
+  --line: #4a1d22;
   --line-strong: #7d1a20;
   --ink: #e6e1e1;
-  --muted: #9a8f90;
+  --muted: #b5abac;
   --accent: #c8202b;
   --accent-ink: #ffffff;
   --danger: #ff6b6b;
   --font-head: "Special Elite", "Courier New", monospace;
-  --font-body: "Courier Prime", "Courier New", monospace;
-  --font-mono: "Courier Prime", "Courier New", monospace;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --head-case: uppercase;
   --head-spacing: 0.14em;
   --radius: 2px;
   --radius-small: 2px;
 }
 body[data-system="vtm"] .panel { border-color: var(--line-strong); }
-body[data-system="vtm"] .panel__title { color: var(--accent); font-size: 0.8rem; }
+body[data-system="vtm"] .panel__title { color: #e0454f; font-size: 0.9rem; }
+body[data-system="vtm"] .group-title, body[data-system="vtm"] .eyebrow { color: #e0454f; }
+/* the typewriter face only for headings and choice titles; everything you read is plain sans */
+body[data-system="vtm"] .choice__title { font-family: var(--font-body); text-transform: none; letter-spacing: 0; font-size: 1.02rem; }
+body[data-system="vtm"] .choice:has(input:checked) { background: #1d0d10; }
 body[data-system="vtm"] .portrait {
   border-radius: 2px; border: 3px solid #d9d4d4; background: #1b1b1d; color: var(--accent);
   transform: rotate(-3deg); box-shadow: 0 6px 18px rgb(0 0 0 / 0.6);

@@ -222,8 +222,8 @@ VALUES
      1, 2, 2, 2, 2, 3, 4, 3, 3,
      'Never take blood from someone who did not agree.',
      'Ruth Okafor, the night nurse who covers for her.',
-     'Herd ••, Resources •, Haven ••, Linguistics •, Allies •',
-     'Dark Secret: Masquerade breacher •, Prey Exclusion: non-consenting •, Obvious Predator ••');
+     'Herd 2, Resources 1, Haven 2, Linguistics 1, Allies 1',
+     'Dark Secret: Masquerade breacher 1, Prey Exclusion: non-consenting 1, Obvious Predator 2');
 
 INSERT INTO vtm_character_skills (char_id, skill_name, level, specialty) VALUES
     (3, 'Medicine', 3, 'Phlebotomy'),

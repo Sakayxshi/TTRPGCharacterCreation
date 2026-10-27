@@ -18,7 +18,7 @@
 
 import { seed, DEMO_PASSWORDS } from "./mockData.js";
 
-const STATE_KEY = "ttrpgForge.mock.v2";
+const STATE_KEY = "ttrpgForge.mock.v3";
 const SESSION_KEY = "ttrpgForge.currentUser";
 
 // ---------------------------------------------------------------------
@@ -66,7 +66,7 @@ function meRow(db) {
   return db.users.find((u) => u.username === name) || null;
 }
 function myUserId(db) {
-  return meRow(db)?.user_id ?? fail("Not a registered TTRPG Forge user");
+  return meRow(db)?.user_id ?? fail("Not a registered user");
 }
 
 // =====================================================================
@@ -148,18 +148,22 @@ export async function getMySessionByCode(code) {
 export async function getPartyMembers(sessionId) {
   await pause();
   const db = load();
-  const mine = (await getMySessions()).map((s) => s.session_id);
-  if (!mine.includes(sessionId)) return [];
+  const me = meRow(db);
+  const session = (await getMySessions()).find((s) => s.session_id === sessionId);
+  if (!session) return [];
   return db.session_players
     .filter((sp) => sp.session_id === sessionId)
     .map((sp) => {
       const c = db.characters.find((ch) => ch.owner_id === sp.user_id && ch.session_id === sessionId);
+      const cp = c && db.cyberpunk_characters.find((x) => x.char_id === c.char_id);
+      // Cyberpunk: the handle if it's public (or mine / I'm the GM), else the real name
+      const seesAll = c && (c.owner_id === me.user_id || session.my_role === "gm");
       return {
         session_id: sessionId,
         username: db.users.find((u) => u.user_id === sp.user_id).username,
         joined_at: sp.joined_at,
         char_id: c?.char_id ?? null,
-        character_name: c?.name ?? null,
+        character_name: !c ? null : !cp ? c.name : (cp.show_handle || seesAll) ? cp.handle : c.name,
         status: c ? "ready" : "no_character",
       };
     });
@@ -179,14 +183,17 @@ export async function getPartyCharacters(sessionId) {
       const w = db.witcher_characters.find((x) => x.char_id === c.char_id);
       const v = db.vtm_characters.find((x) => x.char_id === c.char_id);
       const cp = db.cyberpunk_characters.find((x) => x.char_id === c.char_id);
-      const showLore = c.lore_visible || c.owner_id === me.user_id || session.my_role === "gm";
+      const seesAll = c.owner_id === me.user_id || session.my_role === "gm";
+      const showLore = c.lore_visible || seesAll;
       return {
         char_id: c.char_id, session_id: c.session_id, game_type: session.game_type,
         owner: db.users.find((u) => u.user_id === c.owner_id).username,
-        name: c.name, age: c.age, gender: c.gender,
+        name: !cp || cp.show_name || seesAll ? c.name : null,
+        age: c.age, gender: c.gender,
         race: w?.race ?? null, profession: w?.profession ?? null,
         clan: v?.clan ?? null, sect: v?.sect ?? null,
         cyberpunk_role: cp?.role ?? null,
+        handle: cp && (cp.show_handle || seesAll) ? cp.handle : null,
         lore: showLore ? c.lore : null,
       };
     });
@@ -303,6 +310,7 @@ function insertCharacter(db, me, c, gameType, label) {
   if (db.characters.some((x) => x.owner_id === me && x.session_id === c.session_id)) {
     fail("Duplicate entry for key 'uq_one_char_per_session'");
   }
+  if (!["male", "female"].includes(c.gender)) fail("Gender must be male or female");
   const char_id = nextId(db.characters, "char_id");
   db.characters.push({
     char_id, owner_id: me, session_id: c.session_id, name: c.name, age: c.age ?? null,
@@ -414,9 +422,12 @@ export async function createCyberpunkCharacter(c) {
   const me = myUserId(db);
   if (c.age != null && c.age < 16) fail("Cyberpunk characters are at least 16");
   if (CP_STATS.some((k) => !(c.stats[k] >= 2 && c.stats[k] <= 10))) fail("CONSTRAINT `chk_cp_stats` failed");
+  if (!c.show_name && !c.show_handle) fail("Show at least the name or the handle");
+  if (!c.handle || !c.handle.trim()) fail("Column 'handle' cannot be null");
   const char_id = insertCharacter(db, me, c, "cyberpunk", "Cyberpunk");
   const row = {
-    char_id, role: c.role, reputation: 0, ethnicity: c.ethnicity || null, style: c.style || null,
+    char_id, handle: c.handle.trim(), show_name: Boolean(c.show_name), show_handle: Boolean(c.show_handle),
+    role: c.role, reputation: 0, ethnicity: c.ethnicity || null, style: c.style || null,
     motivations: c.motivations || null, lifepath: c.lifepath || null, cash: c.cash ?? 0,
   };
   CP_STATS.forEach((k) => { row[`stat_${k}`] = c.stats[k]; });
@@ -430,6 +441,18 @@ export async function setCyberpunkSkill(charId, skill, level) {
   const db = load();
   requireOwner(db, charId);
   upsert(db.cyberpunk_character_skills, { char_id: charId, skill_name: skill }, { level });
+  save();
+}
+
+// CALL set_cyberpunk_visibility(char_id, show_name, show_handle)
+export async function setCyberpunkVisibility(charId, showName, showHandle) {
+  await pause();
+  const db = load();
+  requireOwner(db, charId);
+  if (!showName && !showHandle) fail("Show at least the name or the handle");
+  const cp = db.cyberpunk_characters.find((x) => x.char_id === charId);
+  cp.show_name = Boolean(showName);
+  cp.show_handle = Boolean(showHandle);
   save();
 }
 

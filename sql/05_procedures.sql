@@ -21,6 +21,7 @@
 --   create_cyberpunk_character(...)        -> returns char_id
 --   set_cyberpunk_skill(char_id, skill, level)
 --   set_lore_visible(char_id, visible)
+--   set_cyberpunk_visibility(char_id, show_name, show_handle)
 -- =====================================================================
 
 USE ttrpg_forge;
@@ -174,6 +175,10 @@ BEGIN
             SET MESSAGE_TEXT = 'Only humans and elves can be mages or priests';
     END IF;
 
+    IF p_gender IS NULL OR p_gender NOT IN ('male', 'female') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Gender must be male or female';
+    END IF;
+
     START TRANSACTION;
 
     -- fk_char_player rejects this if the caller is not a player here;
@@ -233,6 +238,30 @@ BEGIN
                                          AND owner_id = my_user_id()) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Not your character';
     END IF;
+END //
+
+-- ---------------------------------------------------------------------
+-- set_cyberpunk_visibility: the owner decides whether the party sees the
+-- real name, the handle, or both. Hiding both is refused here with a
+-- clear message; the CHECK constraint chk_cp_shown would refuse it too.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE
+    DEFINER = 'forge_owner'@'localhost'
+    PROCEDURE set_cyberpunk_visibility(IN p_char_id INT, IN p_show_name BOOLEAN,
+                                       IN p_show_handle BOOLEAN)
+    SQL SECURITY DEFINER
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM characters
+                   WHERE char_id = p_char_id AND owner_id = my_user_id()) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Not your character';
+    END IF;
+    IF NOT (p_show_name OR p_show_handle) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Show at least the name or the handle';
+    END IF;
+
+    UPDATE cyberpunk_characters
+    SET show_name = p_show_name, show_handle = p_show_handle
+    WHERE char_id = p_char_id;
 END //
 
 -- =====================================================================
@@ -301,6 +330,10 @@ BEGIN
                          ELSE 2 END
                   + IF(p_predator = 'blood_leech', 1, 0);
 
+    IF p_gender IS NULL OR p_gender NOT IN ('male', 'female') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Gender must be male or female';
+    END IF;
+
     START TRANSACTION;
 
     INSERT INTO characters (owner_id, session_id, name, age, gender, lore)
@@ -364,7 +397,9 @@ CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE create_cyberpunk_character(
         IN p_session_id INT,
-        IN p_name VARCHAR(60), IN p_age SMALLINT UNSIGNED, IN p_gender VARCHAR(30), IN p_lore TEXT,
+        IN p_name VARCHAR(60), IN p_handle VARCHAR(40),
+        IN p_show_name BOOLEAN, IN p_show_handle BOOLEAN,
+        IN p_age SMALLINT UNSIGNED, IN p_gender VARCHAR(30), IN p_lore TEXT,
         IN p_role VARCHAR(20),
         IN p_int TINYINT UNSIGNED, IN p_ref TINYINT UNSIGNED, IN p_tech TINYINT UNSIGNED,
         IN p_cool TINYINT UNSIGNED, IN p_attr TINYINT UNSIGNED, IN p_luck TINYINT UNSIGNED,
@@ -389,6 +424,13 @@ BEGIN
     IF p_age IS NOT NULL AND p_age < 16 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cyberpunk characters are at least 16';
     END IF;
+    IF NOT (p_show_name OR p_show_handle) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Show at least the name or the handle';
+    END IF;
+
+    IF p_gender IS NULL OR p_gender NOT IN ('male', 'female') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Gender must be male or female';
+    END IF;
 
     START TRANSACTION;
 
@@ -397,11 +439,13 @@ BEGIN
     SET v_char_id = LAST_INSERT_ID();
 
     INSERT INTO cyberpunk_characters
-        (char_id, role, stat_int, stat_ref, stat_tech, stat_cool, stat_attr,
+        (char_id, handle, show_name, show_handle,
+         role, stat_int, stat_ref, stat_tech, stat_cool, stat_attr,
          stat_luck, stat_ma, stat_body, stat_emp,
          ethnicity, style, motivations, lifepath, cash)
     VALUES
-        (v_char_id, p_role, p_int, p_ref, p_tech, p_cool, p_attr,
+        (v_char_id, p_handle, p_show_name, p_show_handle,
+         p_role, p_int, p_ref, p_tech, p_cool, p_attr,
          p_luck, p_ma, p_body, p_emp,
          p_ethnicity, p_style, p_motivations, p_lifepath, p_cash);
 

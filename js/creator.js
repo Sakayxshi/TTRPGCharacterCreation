@@ -27,7 +27,7 @@ async function start() {
   applyTheme(session.game_type);
   document.title = `New character · ${session.session_name}`;
   const head = `
-    <a class="back-link" href="lobby.html?code=${esc(session.join_code)}">← ${esc(session.session_name)}</a>
+    <a class="back-link" href="lobby.html?code=${esc(session.join_code)}">Back to ${esc(session.session_name)}</a>
     <h1>New character</h1>
     <p class="muted">${esc(SYSTEMS[session.game_type].name)}</p>`;
 

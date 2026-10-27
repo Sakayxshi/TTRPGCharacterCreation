@@ -79,7 +79,7 @@ CREATE TABLE characters (
     session_id    INT          NOT NULL,
     name          VARCHAR(60)  NOT NULL,
     age           SMALLINT UNSIGNED,
-    gender        VARCHAR(30),
+    gender        ENUM('male', 'female') NOT NULL,
     lore          TEXT,
     lore_visible  BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -279,10 +279,15 @@ CREATE TABLE vtm_character_disciplines (
 -- cyberpunk_characters  (ISA child: Cyberpunk-only fields)
 -- Stats run 2-10. Run, Leap, Save and Humanity are derived, so they are
 -- virtual columns (Humanity before cyberware, which is out of scope).
--- characters.name holds the Handle.
+-- characters.name holds the real name; handle is the street name.
+-- Each one can be hidden from the other players, but never both
+-- (chk_cp_shown), so the party always has something to call you.
 -- ---------------------------------------------------------------------
 CREATE TABLE cyberpunk_characters (
     char_id      INT PRIMARY KEY,
+    handle       VARCHAR(40)      NOT NULL,
+    show_name    BOOLEAN          NOT NULL DEFAULT TRUE,
+    show_handle  BOOLEAN          NOT NULL DEFAULT TRUE,
     role         ENUM('rockerboy', 'solo', 'netrunner', 'techie', 'medtechie',
                       'media', 'cop', 'corporate', 'fixer', 'nomad') NOT NULL,
     stat_int     TINYINT UNSIGNED NOT NULL,
@@ -311,6 +316,7 @@ CREATE TABLE cyberpunk_characters (
         stat_ma   BETWEEN 2 AND 10 AND stat_body BETWEEN 2 AND 10 AND
         stat_emp  BETWEEN 2 AND 10
     ),
+    CONSTRAINT chk_cp_shown CHECK (show_name OR show_handle),
     CONSTRAINT fk_cp_char
         FOREIGN KEY (char_id) REFERENCES characters(char_id)
         ON DELETE CASCADE
