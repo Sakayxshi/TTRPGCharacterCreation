@@ -105,7 +105,7 @@ export function stepper({ group, key, label, sub = "", value, min, max, help = "
   const id = `${group}-${key}`.replace(/[^a-z0-9-]/gi, "_");
   return `
     <div class="stepper ${value > min ? "stepper--set" : ""}">
-      <span class="stepper__label" id="${id}-label"><span class="stepper__name">${esc(label)}${cost === 2 ? costTag() : ""}${info(help, label)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</span>
+      <span class="stepper__label" id="${id}-label"><span class="stepper__name">${keepWithLast(label, info(cost === 2 ? `${help} Difficult skill: every level costs 2 points.` : help, label))}</span>${sub || cost === 2 ? `<small>${esc(sub)}${cost === 2 ? costTag() : ""}</small>` : ""}</span>
       <span class="stepper__control">
         <button type="button" data-group="${group}" data-key="${esc(key)}" data-delta="-1"
           aria-label="Lower ${esc(label)}" ${value <= min ? "disabled" : ""}>-</button>
@@ -116,9 +116,16 @@ export function stepper({ group, key, label, sub = "", value, min, max, help = "
     </div>`;
 }
 
+// "Language: Nordling ?" -> the "?" never ends up alone on a new line
+function keepWithLast(label, extra) {
+  const i = label.lastIndexOf(" ");
+  if (!extra) return esc(label);
+  return `${esc(label.slice(0, i + 1))}<span class="nowrap">${esc(label.slice(i + 1))}${extra}</span>`;
+}
+
 // Difficult Witcher skills cost 2 points per level
 export function costTag() {
-  return ` <span class="cost-tag">x2</span>${info("A difficult skill: every level costs 2 points instead of 1.", "x2 cost")}`;
+  return `<span class="cost-tag" title="Costs 2 points per level">x2</span>`;
 }
 
 export function poolBadge(used, total, unit = "points") {

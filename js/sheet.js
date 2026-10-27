@@ -161,7 +161,7 @@ async function renderWitcher(f) {
       ["Gender", genderText(f.gender)], ["Homeland", f.homeland], ["Social standing", f.social_standing, WH.TEXT.standing],
       ["Reputation", f.reputation], ["Player", f.owner],
     ])}
-    <div class="grid-sheet">
+    <div class="stack">
       ${panel("Statistics", `<div class="stat-row">${W_STATS.map((st) => `
         <div class="stat"><span class="stat__label">${st.label}${info(WH.STAT_HELP[st.key], st.name)}</span><span class="stat__value">${esc(s[st.key])}</span></div>`).join("")}</div>`)}
       ${panel("Derived", `<dl class="derived">

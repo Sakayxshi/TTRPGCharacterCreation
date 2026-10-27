@@ -63,7 +63,8 @@ export function startWitcherCreator(root, session) {
           </div>
           ${radioCards("race", "Choose a race", Object.entries(RACES).map(([value, r]) => ({
             value, title: r.name, text: r.blurb, help: RACE_HELP[value],
-            extra: r.perks.map(([p, t]) => `<strong>${esc(p)}:</strong> ${esc(t)}`).join("<br>"),
+            extra: `<span class="perks-label">Racial perks</span>${r.perks.map(([p, t]) =>
+              `<span class="perk"><strong>${esc(p)}</strong><span>${esc(t)}</span></span>`).join("")}`,
           })), state.race)}`;
       },
       onInput: textInput,
@@ -95,6 +96,7 @@ export function startWitcherCreator(root, session) {
               <p class="field-note">${standing ? `Social standing there: <strong>${esc(standing)}</strong>${info(TEXT.standing, "Social standing")}` : "Decides your social standing."}</p>
             </div>
             ${selectField({ id: "c-up", label: "Upbringing", value: state.upbringing,
+              tip: "The family or group that raised you. It's background for your story and doesn't change any numbers.",
               options: ["Aristocracy", "Merchant family", "Craftsmen", "Peasants", "Soldiers", "Scholars", "Clergy", "Street orphan"] })}
           </div>
           ${textField({ id: "c-event", label: "Most important life event", value: state.lifeEvent, max: 200 })}
@@ -293,7 +295,8 @@ export function startWitcherCreator(root, session) {
           </div>
           ${review([
             ["Name", esc([state.name, state.age, state.gender && (state.gender === "male" ? "Male" : "Female")].filter(Boolean).join(", "))],
-            ["Race / profession", esc(`${RACES[state.race].name} ${p.name}`)],
+            ["Race", esc(RACES[state.race].name)],
+            ["Profession", esc(p.name)],
             ["Homeland", esc(state.homeland ? `${state.homeland} (${socialStanding(state.race, state.homeland)})` : "")],
             ["Statistics", STATS.map((s) => `${s.label} ${f[s.key]}`).join(", ")],
             ["Skills", esc(Object.entries({ ...state.profSkills, ...state.pickup }).map(([n, l]) => `${n} ${l}`).join(", "))],
