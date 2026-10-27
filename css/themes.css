@@ -1,0 +1,161 @@
+/* =====================================================================
+   themes.css - one look per game, switched by <body data-system="...">
+   Each theme only overrides the variables from style.css plus a few
+   details, so every page layout is shared.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   THE WITCHER
+   Default: School of the Wolf / Kaer Morhen - cold stone, steel and a
+   single wolf-red. Other schools only swap the colour variables.
+   --------------------------------------------------------------------- */
+body[data-system="witcher"] {
+  --bg: #15181b;
+  --surface: #1c2024;
+  --surface-2: #22272c;
+  --line: #333a41;
+  --line-strong: #525c66;
+  --ink: #e3e6e9;
+  --muted: #969fa8;
+  --accent: #b7c2cd;        /* steel / medallion silver */
+  --accent-ink: #111417;
+  --mark: #962c2c;          /* the one strong colour: buttons, badges */
+  --mark-ink: #ffffff;
+  --danger: #e0645a;
+  --font-head: "Cormorant SC", Georgia, serif;
+  --font-body: "Alegreya Sans", system-ui, sans-serif;
+  --head-case: none;
+  --head-spacing: 0.04em;
+  --radius: 4px;
+  --radius-small: 3px;
+}
+body[data-system="witcher"][data-school="cat"] {
+  --bg: #131110; --surface: #1b1816; --surface-2: #221e1b; --line: #3a322b; --line-strong: #5e5246;
+  --ink: #ece4d8; --muted: #a59889; --accent: #d39a35; --accent-ink: #1a1206; --mark: #7d2420;
+}
+body[data-system="witcher"][data-school="griffin"] {
+  --bg: #10141b; --surface: #161d29; --surface-2: #1c2433; --line: #2c3a52; --line-strong: #46597a;
+  --ink: #e5eaf2; --muted: #9aa6b8; --accent: #d4b764; --accent-ink: #141006; --mark: #2f5ea5;
+}
+body[data-system="witcher"][data-school="bear"] {
+  --bg: #15130f; --surface: #1d1a15; --surface-2: #24201a; --line: #3b342a; --line-strong: #5f5444;
+  --ink: #e8e1d5; --muted: #a39a8b; --accent: #bf8f57; --accent-ink: #160f06; --mark: #4d6a37;
+}
+body[data-system="witcher"][data-school="viper"] {
+  --bg: #0e110f; --surface: #141916; --surface-2: #1a201c; --line: #29352d; --line-strong: #435446;
+  --ink: #e2e9e4; --muted: #93a298; --accent: #5fae7c; --accent-ink: #07130b; --mark: #2a6b45;
+}
+
+body[data-system="witcher"] h1 { font-weight: 700; letter-spacing: 0.02em; }
+body[data-system="witcher"] .panel__title { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+body[data-system="witcher"] .btn--primary { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
+body[data-system="witcher"] .badge--accent { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
+body[data-system="witcher"] .stat { background: var(--bg); }
+body[data-system="witcher"] .stat__value { font-family: "Cormorant SC", Georgia, serif; font-size: 1.8rem; line-height: 1.1; }
+body[data-system="witcher"] .portrait {
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--accent);
+  font-family: "Cormorant SC", Georgia, serif;
+}
+body[data-system="witcher"] .steps button[aria-current="step"] { border-top-color: var(--mark); }
+
+/* ---------------------------------------------------------------------
+   VAMPIRE: THE MASQUERADE (5th edition)
+   Near black, thin crimson rules, typewriter type, diamond ratings
+   --------------------------------------------------------------------- */
+body[data-system="vtm"] {
+  --bg: #08080a;
+  --surface: #0e0d10;
+  --surface-2: #131216;
+  --line: #3a1418;
+  --line-strong: #7d1a20;
+  --ink: #e6e1e1;
+  --muted: #9a8f90;
+  --accent: #c8202b;
+  --accent-ink: #ffffff;
+  --danger: #ff6b6b;
+  --font-head: "Special Elite", "Courier New", monospace;
+  --font-body: "Courier Prime", "Courier New", monospace;
+  --font-mono: "Courier Prime", "Courier New", monospace;
+  --head-case: uppercase;
+  --head-spacing: 0.14em;
+  --radius: 2px;
+  --radius-small: 2px;
+}
+body[data-system="vtm"] .panel { border-color: var(--line-strong); }
+body[data-system="vtm"] .panel__title { color: var(--accent); font-size: 0.8rem; }
+body[data-system="vtm"] .portrait {
+  border-radius: 2px; border: 3px solid #d9d4d4; background: #1b1b1d; color: var(--accent);
+  transform: rotate(-3deg); box-shadow: 0 6px 18px rgb(0 0 0 / 0.6);
+}
+body[data-system="vtm"] .dots i,
+body[data-system="vtm"] .dot-picker__dot::before { border-radius: 0; transform: rotate(45deg); }
+body[data-system="vtm"] .boxes i { border-color: var(--accent); }
+
+/* ---------------------------------------------------------------------
+   CYBERPUNK 2020
+   The red-and-white paper sheet, brought forward: off-white panels on
+   black, hard red title bars, clipped corners, condensed italic type
+   --------------------------------------------------------------------- */
+body[data-system="cyberpunk"] {
+  color-scheme: light;
+  --bg: #111113;
+  --surface: #f2f0eb;
+  --surface-2: #ffffff;
+  --line: #d6d1c8;
+  --line-strong: #e1251b;
+  --ink: #141414;
+  --muted: #5d5a55;
+  --accent: #e1251b;
+  --accent-ink: #ffffff;
+  --danger: #c1121f;
+  --ok: #1f7a3a;
+  --focus: #00b3c7;
+  --font-head: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --head-case: uppercase;
+  --head-spacing: 0.03em;
+  --radius: 0;
+  --radius-small: 0;
+  background: repeating-linear-gradient(135deg, rgb(225 37 27 / 0.05) 0 2px, transparent 2px 16px), var(--bg);
+}
+/* text that sits directly on the black page */
+body[data-system="cyberpunk"] .site-header { background: #000; border-color: var(--accent); }
+body[data-system="cyberpunk"] .site-header .btn,
+body[data-system="cyberpunk"] .home-link { color: #e8e4dc; border-color: #555; }
+body[data-system="cyberpunk"] main > h1,
+body[data-system="cyberpunk"] .lobby-head h1,
+body[data-system="cyberpunk"] .sheet-toolbar .btn { color: #fff; background: #000; border-color: var(--accent); }
+body[data-system="cyberpunk"] .site-header .badge { color: #e8e4dc; border-color: var(--accent); }
+body[data-system="cyberpunk"] main > p.muted,
+body[data-system="cyberpunk"] .lobby-head .muted,
+body[data-system="cyberpunk"] .back-link { color: #c9c4bc; }
+body[data-system="cyberpunk"] h1 { font-style: italic; font-weight: 700; }
+
+body[data-system="cyberpunk"] .panel {
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  border: 0;
+  padding-top: 0;
+}
+body[data-system="cyberpunk"] .panel__title {
+  margin: 0 -1.25rem 1rem;
+  padding: 0.35rem 1.25rem;
+  background: var(--accent);
+  color: #fff;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 1.05rem;
+  border: 0;
+}
+body[data-system="cyberpunk"] #wizard { padding-top: 1.25rem; }
+body[data-system="cyberpunk"] .stat { border: 2px solid var(--accent); background: #fff; padding-top: 0; }
+body[data-system="cyberpunk"] .stat__label { background: var(--accent); color: #fff; margin: 0 -0.25rem 0.3rem; padding: 0.15rem; }
+body[data-system="cyberpunk"] .portrait { border-radius: 0; border: 2px solid var(--accent); background: #111; color: #fff; }
+body[data-system="cyberpunk"] .code-box { background: #fff; color: var(--ink); }
+body[data-system="cyberpunk"] .steps button { background: #1c1c1f; color: #bbb; border-color: #333; }
+body[data-system="cyberpunk"] .steps button[aria-current="step"] { color: #fff; border-top-color: var(--accent); }
+body[data-system="cyberpunk"] .steps button[data-done="true"] { color: #fff; }
+body[data-system="cyberpunk"] .dots i { border-radius: 0; }
