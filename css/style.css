@@ -641,3 +641,42 @@ input:user-invalid, select:user-invalid { border-color: var(--danger); }
 }
 /* "?" on coloured labels takes the label's own colour */
 .stat__label .info, .panel__title .info { color: inherit; border-color: currentColor; }
+
+/* "?" sits on the text's centre line, whatever the font */
+.choice__title, .stepper__name, .field > label, legend, .panel__title, h2, h3, .stat__label, .derived dt, .trait > span:first-child, .skill-groups li > span:first-child, .sheet-head dt {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0 0.35rem;
+}
+.stat__label, .derived dt { justify-content: center; }
+.info { margin-left: 0; vertical-align: middle; flex-shrink: 0; }
+.trait > span:first-child .specialty, .stepper__label small { flex-basis: 100%; }
+
+/* Witcher racial perks: one block per perk */
+.perks-label { display: block; margin: 0.75rem 0 0.4rem; padding-top: 0.6rem; border-top: 1px solid var(--line);
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.perk { display: block; margin-bottom: 0.6rem; line-height: 1.45; }
+.perk:last-child { margin-bottom: 0; }
+.perk strong { display: block; color: var(--ink); margin-bottom: 0.1rem; }
+
+/* number fields: no spinner arrows */
+input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* refinements */
+.info { margin-left: 0.3rem; }
+:is(.choice__title, .stepper__name, .field > label, legend, .panel__title, h2, h3, .stat__label, .derived dt,
+  .trait > span:first-child, .skill-groups li > span:first-child, .sheet-head dt) > .info { margin-left: 0; }
+.stepper__name { flex-wrap: nowrap; align-items: center; }
+.stepper__name > span:first-child { min-width: 0; }
+.stepper-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.cost-tag { margin-left: 0; flex-shrink: 0; }
+h2 .pool, h3 .pool { font-size: 0.85rem; font-weight: 600; text-transform: none; letter-spacing: 0; font-style: normal; }
+.review { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+#add-conv, [data-add] { margin: 0.25rem 0 1.25rem; }
+.toggle { margin-top: 0.25rem; }
+.stat-row { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+.stepper__label small { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.15rem; }
+/* stepper names wrap like text, so the "?" follows the last word */
+.stepper__name { display: block; }
+.stepper .stepper__label .stepper__name > .info { margin-left: 0.35rem; vertical-align: -0.15em; }
+.nowrap { white-space: nowrap; }
+.stepper .stepper__label .stepper__name .nowrap > .info { margin-left: 0.35rem; vertical-align: -0.15em; }
