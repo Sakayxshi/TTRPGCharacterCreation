@@ -1,0 +1,60 @@
+erDiagram
+    users ||--o{ game_sessions : "hosts (gm_id)"
+    users ||--o{ session_players : joins
+    game_sessions ||--o{ session_players : has
+    session_players ||--o| characters : "owns (owner_id, session_id)"
+    characters ||--|| witcher_characters : "ISA"
+    witcher_characters ||--o{ character_skills : has
+    witcher_skills ||--o{ character_skills : "is used in"
+
+    users {
+        INT user_id PK
+        VARCHAR username UK
+        TIMESTAMP created_at
+    }
+    game_sessions {
+        INT session_id PK
+        CHAR join_code UK
+        ENUM game_type
+        VARCHAR session_name
+        INT gm_id FK
+        TIMESTAMP created_at
+    }
+    session_players {
+        INT user_id PK,FK
+        INT session_id PK,FK
+        TIMESTAMP joined_at
+    }
+    characters {
+        INT char_id PK
+        INT owner_id FK
+        INT session_id FK
+        VARCHAR name
+        SMALLINT age
+        VARCHAR gender
+        TEXT lore
+        BOOLEAN lore_visible
+    }
+    witcher_characters {
+        INT char_id PK,FK
+        ENUM race
+        ENUM profession
+        VARCHAR homeland
+        VARCHAR social_standing
+        TINYINT reputation
+        TEXT lifepath
+        TINYINT stat_int_to_stat_luck "9 columns"
+        INT coin
+        SMALLINT run_speed "virtual"
+        SMALLINT encumbrance "virtual"
+    }
+    witcher_skills {
+        VARCHAR skill_name PK
+        ENUM base_stat
+        TINYINT cost
+    }
+    character_skills {
+        INT char_id PK,FK
+        VARCHAR skill_name PK,FK
+        TINYINT level
+    }
