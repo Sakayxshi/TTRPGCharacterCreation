@@ -42,10 +42,7 @@ LEFT JOIN characters c  ON c.owner_id = sp.user_id
                        AND c.session_id = sp.session_id;
 
 
--- ---------------------------------------------------------------------
--- party_characters: PUBLIC layer - every character in my sessions
--- lore only if: the owner shared it, OR it is mine, OR I am the GM
--- ---------------------------------------------------------------------
+
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost' SQL SECURITY DEFINER
 VIEW party_characters AS
@@ -63,10 +60,7 @@ LEFT JOIN witcher_characters w ON w.char_id = c.char_id
 CROSS JOIN me;
 
 
--- ---------------------------------------------------------------------
--- full_characters: PRIVATE layer - all fields, only my own characters
--- and characters in sessions I am GM of
--- ---------------------------------------------------------------------
+
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost' SQL SECURITY DEFINER
 VIEW full_characters AS
@@ -84,9 +78,7 @@ WHERE c.owner_id = me.user_id
    OR c.session_id IN (SELECT session_id FROM game_sessions WHERE gm_id = me.user_id);
 
 
--- ---------------------------------------------------------------------
--- full_character_skills: skills of the characters full_characters shows
--- ---------------------------------------------------------------------
+
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost' SQL SECURITY DEFINER
 VIEW full_character_skills AS
