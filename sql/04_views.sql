@@ -58,28 +58,44 @@ CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost' SQL SECURITY DEFINER
 VIEW party_members AS
 SELECT ms.session_id, u.username, sp.joined_at,
-       c.char_id, c.name AS character_name,
+       c.char_id,
+       -- Cyberpunk: the handle if it is public (or it's mine / I'm the GM),
+       -- otherwise the real name. chk_cp_shown means one of them is public.
+       CASE WHEN cp.char_id IS NULL THEN c.name
+            WHEN cp.show_handle OR c.owner_id = me.user_id OR ms.my_role = 'gm'
+            THEN cp.handle
+            ELSE c.name END AS character_name,
        CASE WHEN c.char_id IS NULL THEN 'no_character' ELSE 'ready' END AS status
 FROM my_sessions ms
 JOIN session_players sp ON sp.session_id = ms.session_id
 JOIN users u            ON u.user_id = sp.user_id
 LEFT JOIN characters c  ON c.owner_id = sp.user_id
-                       AND c.session_id = sp.session_id;
+                       AND c.session_id = sp.session_id
+LEFT JOIN cyberpunk_characters cp ON cp.char_id = c.char_id
+CROSS JOIN me;
 
 
 -- ---------------------------------------------------------------------
 -- party_characters: PUBLIC layer - every character in my sessions.
 -- Public per system: Witcher race + profession, Vampire clan + sect,
--- Cyberpunk role. lore only if shared, mine, or I am the GM.
+-- Cyberpunk role and handle. lore only if shared, mine, or I am the GM.
+-- A Cyberpunk player can hide the real name or the handle (not both):
+-- hidden values come back as NULL unless it's mine or I am the GM.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost' SQL SECURITY DEFINER
 VIEW party_characters AS
 SELECT c.char_id, c.session_id, ms.game_type, u.username AS owner,
-       c.name, c.age, c.gender,
+       CASE WHEN cp.char_id IS NULL OR cp.show_name
+              OR c.owner_id = me.user_id OR ms.my_role = 'gm'
+            THEN c.name END AS name,
+       c.age, c.gender,
        w.race, w.profession,
        v.clan, v.sect,
        cp.role AS cyberpunk_role,
+       CASE WHEN cp.show_handle
+              OR c.owner_id = me.user_id OR ms.my_role = 'gm'
+            THEN cp.handle END AS handle,
        CASE WHEN c.lore_visible
               OR c.owner_id = me.user_id
               OR ms.my_role = 'gm'
@@ -173,6 +189,7 @@ CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost' SQL SECURITY DEFINER
 VIEW full_cyberpunk_characters AS
 SELECT f.*,
+       cp.handle, cp.show_name, cp.show_handle,
        cp.role, cp.stat_int, cp.stat_ref, cp.stat_tech, cp.stat_cool, cp.stat_attr,
        cp.stat_luck, cp.stat_ma, cp.stat_body, cp.stat_emp,
        cp.reputation, cp.ethnicity, cp.style, cp.motivations, cp.lifepath, cp.cash,

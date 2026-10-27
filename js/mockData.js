@@ -93,8 +93,8 @@ export const seed = {
       attr_composure: 3, attr_intelligence: 4, attr_wits: 3, attr_resolve: 3,
       convictions: "Never take blood from someone who did not agree.",
       touchstones: "Ruth Okafor, the night nurse who covers for her.",
-      advantages: "Herd ••, Resources •, Haven ••, Linguistics •, Allies •",
-      flaws: "Dark Secret: Masquerade breacher •, Prey Exclusion: non-consenting •, Obvious Predator ••",
+      advantages: "Herd 2, Resources 1, Haven 2, Linguistics 1, Allies 1",
+      flaws: "Dark Secret: Masquerade breacher 1, Prey Exclusion: non-consenting 1, Obvious Predator 2",
     },
   ],
 

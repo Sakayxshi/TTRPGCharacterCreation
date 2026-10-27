@@ -5,16 +5,27 @@
 // =====================================================================
 
 import { createVtmCharacter, setVtmSkill, setVtmDiscipline, setLoreVisible, VTM_ATTRIBUTES } from "../api.js";
-import { esc } from "../ui.js";
-import { createWizard, radioCards, dotPicker, textField, selectField, review } from "../wizard.js";
+import { esc, info } from "../ui.js";
 import {
-  ATTRIBUTES, ATTRIBUTE_SPREAD, SKILLS, SKILL_DISTRIBUTIONS, CLANS, ALL_DISCIPLINES, DISCIPLINE_TEXT,
+  createWizard, radioCards, dotPicker, textField, selectField, review, genderField, spreadStatus,
+} from "../wizard.js";
+import {
+  ATTRIBUTES, ATTRIBUTE_SPREAD, SKILLS, SKILL_DISTRIBUTIONS, CLANS, ALL_DISCIPLINES,
   PREDATORS, ERAS, SECTS, cap, bloodPotency,
 } from "../vtmRules.js";
+import {
+  ATTRIBUTE_HELP, SKILL_HELP, SPECIALTIES, CLAN_HELP, DISCIPLINE_HELP, TEXT, ADVANTAGES, FLAWS,
+} from "../vtmHelp.js";
 
 const FREE_SPECIALTY_SKILLS = ["Academics", "Craft", "Performance", "Science"];
 const ALL_SKILLS = Object.values(SKILLS).flat();
-const dotsText = (n) => "•".repeat(n);
+const OTHER = "__other";
+const SECT_HELP = {
+  Camarilla: "The old order. Enforces the Masquerade and is ruled by elders.",
+  Anarch: "Rebels who reject the rule of the elders.",
+  "Autarkis (independent)": "Loners who refuse to join any sect.",
+  Unaligned: "Not part of any sect yet.",
+};
 
 export function startVtmCreator(root, session) {
   const state = {
@@ -22,16 +33,18 @@ export function startVtmCreator(root, session) {
     clan: null, sire: "", era: "neonate", generation: 13,
     attributes: Object.fromEntries(VTM_ATTRIBUTES.map((a) => [a, 1])),
     distribution: null, skills: Object.fromEntries(ALL_SKILLS.map((s) => [s, 0])),
-    specialties: {}, freeSpecialtySkill: "", freeSpecialty: "",
+    // specialty text per skill, and whether the player chose "Other" and typed it
+    specialties: {}, specOther: {},
+    freeSpecialtySkill: "", freeSpecialty: "", freeOther: false,
     primary: "", secondary: "",
     predator: null, predatorSpecialty: "", predatorDiscipline: "",
-    advantages: [{ name: "", dots: 1 }], flaws: [{ name: "", dots: 1 }],
+    advantages: [{ name: "", custom: "", dots: 1 }], flaws: [{ name: "", custom: "", dots: 1 }],
     convictions: [{ conviction: "", touchstone: "" }],
     lore: "", shareLore: false,
   };
   const FIELDS = {
-    "v-name": "name", "v-age": "age", "v-gender": "gender", "v-concept": "concept", "v-ambition": "ambition",
-    "v-desire": "desire", "v-sire": "sire", "v-lore": "lore", "v-free-spec": "freeSpecialty",
+    "v-name": "name", "v-age": "age", "v-concept": "concept", "v-ambition": "ambition",
+    "v-desire": "desire", "v-sire": "sire", "v-lore": "lore", "v-free-spec-text": "freeSpecialty",
   };
   const textInput = (e) => { if (FIELDS[e.target.id]) state[FIELDS[e.target.id]] = e.target.value; };
 
@@ -42,13 +55,43 @@ export function startVtmCreator(root, session) {
   const humanity = () => 7 + (era().humanity || 0) + (PREDATORS[state.predator]?.humanity || 0);
   const countLevels = (values) => values.reduce((m, v) => ({ ...m, [v]: (m[v] || 0) + 1 }), {});
   const clanDisciplines = () => (state.clan === "caitiff" ? ALL_DISCIPLINES : clan()?.disciplines || []);
+  const ordinal = (n) => `${n}th`;
 
-  function spreadTable(need, have) {
-    return `<table class="spread"><tr><th>Dots</th>${Object.keys(need).sort((a, b) => b - a).map((k) => `<td>${dotsText(+k)}</td>`).join("")}</tr>
-      <tr><th>Needed</th>${Object.keys(need).sort((a, b) => b - a).map((k) => `<td>${need[k]}</td>`).join("")}</tr>
-      <tr><th>Placed</th>${Object.keys(need).sort((a, b) => b - a).map((k) =>
-        `<td class="${(have[k] || 0) === need[k] ? "ok" : (have[k] || 0) > need[k] ? "over" : ""}">${have[k] || 0}</td>`).join("")}</tr></table>`;
+  // A specialty: pick a suggestion, or "Other" and type your own
+  function specialtyField(id, skill, value, other, label) {
+    const list = SPECIALTIES[skill] || [];
+    const selected = other ? OTHER : value;
+    return `
+      <div class="spec-field">
+        ${selectField({ id, label, value: selected, attrs: `data-spec="${esc(skill)}"`,
+          options: [...list.map((s) => [s, s]), [OTHER, "Other (write your own)"]] })}
+        ${other ? textField({ id: `${id}-text`, label: "Your specialty", value, max: 60, required: true }) : ""}
+      </div>`;
   }
+
+  // One Advantage or Flaw row: pick from the list (or "Other") and its dots
+  function advRow(kind, r, i) {
+    const list = kind === "advantages" ? ADVANTAGES : FLAWS;
+    const entry = list[r.name];
+    const dotsAllowed = entry ? entry.dots : [1, 2, 3, 4, 5];
+    return `
+      <div class="adv-row">
+        <select aria-label="${kind === "advantages" ? "Advantage" : "Flaw"} ${i + 1}" data-adv="${kind}" data-i="${i}" data-prop="name">
+          <option value="">Choose</option>
+          ${Object.keys(list).map((n) => `<option value="${esc(n)}" ${r.name === n ? "selected" : ""}>${esc(n)}</option>`).join("")}
+          <option value="${OTHER}" ${r.name === OTHER ? "selected" : ""}>Other (write your own)</option>
+        </select>
+        <select aria-label="Dots" data-adv="${kind}" data-i="${i}" data-prop="dots">
+          ${dotsAllowed.map((n) => `<option value="${n}" ${r.dots === n ? "selected" : ""}>${n} ${n === 1 ? "dot" : "dots"}</option>`).join("")}
+        </select>
+        <span class="adv-row__tools">${entry ? info(entry.help, r.name) : ""}
+          <button type="button" class="btn btn--small btn--ghost" data-remove="${kind}" data-i="${i}">Remove</button></span>
+        ${r.name === OTHER ? `<input type="text" class="adv-row__custom" aria-label="Name" data-adv="${kind}" data-i="${i}" data-prop="custom"
+          value="${esc(r.custom)}" maxlength="60" placeholder="Name">` : ""}
+      </div>`;
+  }
+  const advName = (r) => (r.name === OTHER ? r.custom.trim() : r.name);
+  const advUsed = (list) => list.reduce((s, r) => s + (advName(r) ? r.dots : 0), 0);
 
   const steps = [
     // 1 ---------------------------------------------------------------
@@ -61,18 +104,24 @@ export function startVtmCreator(root, session) {
           <div class="grid-3">
             ${textField({ id: "v-name", label: "Name", value: state.name, max: 60, required: true })}
             ${textField({ id: "v-age", label: "Apparent age", value: state.age, type: "number", attrs: 'min="1" max="5000"' })}
-            ${textField({ id: "v-gender", label: "Gender", value: state.gender, max: 30 })}
+            ${genderField("gender", state.gender)}
           </div>
-          ${textField({ id: "v-concept", label: "Concept", value: state.concept, max: 100, required: true, help: "One line, e.g. \"burned-out ER nurse\" or \"failed rapper\"." })}
+          ${textField({ id: "v-concept", label: "Concept", value: state.concept, max: 100, required: true, tip: TEXT.concept,
+            help: "One line, for example \"burned-out ER nurse\" or \"failed rapper\"." })}
           <div class="grid-2">
-            ${textField({ id: "v-ambition", label: "Ambition", value: state.ambition, max: 200, help: "A long-term goal." })}
-            ${textField({ id: "v-desire", label: "Desire", value: state.desire, max: 200, help: "What they want right now." })}
+            ${textField({ id: "v-ambition", label: "Ambition", value: state.ambition, max: 200, tip: TEXT.ambition })}
+            ${textField({ id: "v-desire", label: "Desire", value: state.desire, max: 200, tip: TEXT.desire })}
           </div>
-          ${selectField({ id: "v-sect", label: "Sect", options: SECTS, value: state.sect })}`;
+          ${radioCards("sect", "Sect", SECTS.map((s) => ({ value: s, title: s, text: SECT_HELP[s] })), state.sect, TEXT.sect)}`;
       },
       onInput: textInput,
-      onChange(e) { if (e.target.id === "v-sect") state.sect = e.target.value; },
-      validate: () => (!state.name.trim() ? "Enter a name." : !state.concept.trim() ? "Write a one-line concept." : ""),
+      onChange(e) {
+        if (e.target.name === "sect") state.sect = e.target.value;
+        if (e.target.name === "gender") state.gender = e.target.value;
+      },
+      validate: () => (!state.name.trim() ? "Enter a name."
+        : !state.gender ? "Choose male or female."
+        : !state.concept.trim() ? "Write a one-line concept." : ""),
     },
     // 2 ---------------------------------------------------------------
     {
@@ -82,16 +131,18 @@ export function startVtmCreator(root, session) {
         body.innerHTML = `
           <h2>Clan &amp; Sire</h2>
           ${radioCards("clan", "Clan", Object.entries(CLANS).map(([value, c]) => ({
-            value, title: c.name, text: c.blurb,
-            extra: `${c.disciplines.length ? `<strong>${c.disciplines.map(esc).join(" · ")}</strong><br>` : ""}${esc(c.bane)}`,
+            value, title: c.name, text: c.blurb, help: CLAN_HELP[value],
+            extra: `${c.disciplines.length ? `<span class="tag-list">${c.disciplines.map((d) =>
+              `<span class="tag">${esc(d)}${info(DISCIPLINE_HELP[d], d)}</span>`).join("")}</span>` : ""}
+              <span class="bane"><strong>Bane, ${esc(c.bane.split(": ")[0])}:</strong> ${esc(c.bane.split(": ").slice(1).join(": "))}</span>`,
           })), state.clan)}
-          ${textField({ id: "v-sire", label: "Sire", value: state.sire, max: 60, help: "The vampire who Embraced them." })}
+          ${textField({ id: "v-sire", label: "Sire", value: state.sire, max: 60, tip: TEXT.sire })}
           ${radioCards("era", "When were they Embraced?", Object.entries(ERAS).map(([value, e]) => ({
             value, title: e.name, text: e.text,
             disabled: isThin() && !e.thinGenerations.length, why: isThin() && !e.thinGenerations.length ? "Not possible for thin-bloods." : "",
-          })), state.era)}
-          ${generations().length ? selectField({ id: "v-gen", label: "Generation", value: state.generation, placeholder: "—",
-            options: generations().map((g) => [g, `${g}th generation · Blood Potency ${bloodPotency(g, null)}`]) }) : ""}`;
+          })), state.era, TEXT.era)}
+          ${generations().length ? selectField({ id: "v-gen", label: "Generation", value: state.generation, placeholder: null, tip: TEXT.generation,
+            options: generations().map((g) => [g, `${ordinal(g)} generation, Blood Potency ${bloodPotency(g, null)}`]) }) : ""}`;
       },
       onInput: textInput,
       onChange(e, rerender) {
@@ -113,16 +164,18 @@ export function startVtmCreator(root, session) {
         const need = countLevels(ATTRIBUTE_SPREAD);
         const have = countLevels(Object.values(state.attributes));
         body.innerHTML = `
-          <h2>Attributes</h2>
-          <p class="muted">One at ••••, three at •••, four at ••, one at •.</p>
-          ${spreadTable(need, have)}
+          <h2>Attributes${info(TEXT.attributes, "Attributes")}</h2>
+          <p class="muted">Place one attribute at 4, three at 3, four at 2 and one at 1.
+            Click the dots to set a level. The boxes below show how many you have placed at each level.</p>
+          ${spreadStatus(need, have)}
           <div class="attr-grid">
             ${Object.entries(ATTRIBUTES).map(([group, attrs]) => `
               <section><h3 class="group-title">${group}</h3>
-                ${attrs.map((a) => dotPicker({ name: `attr-${a}`, label: cap(a), value: state.attributes[a], min: 1, max: 4 })).join("")}
+                ${attrs.map((a) => dotPicker({ name: `attr-${a}`, label: cap(a), value: state.attributes[a], min: 1, max: 4,
+                  help: ATTRIBUTE_HELP[a] })).join("")}
               </section>`).join("")}
           </div>
-          <p class="muted">Health ${state.attributes.stamina + 3} (Stamina + 3) · Willpower ${state.attributes.composure + state.attributes.resolve} (Composure + Resolve)</p>`;
+          <p class="muted">Health ${state.attributes.stamina + 3}, Willpower ${state.attributes.composure + state.attributes.resolve}${info(TEXT.health, "Health and Willpower")}</p>`;
       },
       onChange(e, rerender) {
         if (e.target.name?.startsWith("attr-")) { state.attributes[e.target.name.slice(5)] = Number(e.target.value); rerender(); }
@@ -139,41 +192,67 @@ export function startVtmCreator(root, session) {
         const dist = SKILL_DISTRIBUTIONS[state.distribution];
         const have = countLevels(Object.values(state.skills).filter((v) => v > 0));
         const withDots = (s) => state.skills[s] > 0;
+        const freeSkills = ALL_SKILLS.filter(withDots);
         body.innerHTML = `
           <h2>Skills</h2>
           ${radioCards("dist", "Choose a distribution", Object.entries(SKILL_DISTRIBUTIONS).map(([value, d]) => ({
-            value, title: d.name, text: d.text })), state.distribution)}
+            value, title: d.name, text: d.text })), state.distribution, TEXT.distribution)}
           ${dist ? `
-            ${spreadTable(dist.spread, have)}
+            ${spreadStatus(dist.spread, have)}
             <div class="attr-grid">
               ${Object.entries(SKILLS).map(([group, skills]) => `
                 <section><h3 class="group-title">${group}</h3>
-                  ${skills.map((s) => dotPicker({ name: `skill-${s}`, label: s, value: state.skills[s], min: 0,
+                  ${skills.map((s) => dotPicker({ name: `skill-${s}`, label: s, value: state.skills[s], min: 0, help: SKILL_HELP[s],
                     max: Math.max(...Object.keys(dist.spread).map(Number)) })).join("")}
                 </section>`).join("")}
             </div>
-            <h3>Specialties</h3>
-            <p class="muted">Academics, Craft, Performance and Science each get a free specialty if they have dots. Then pick one more.</p>
-            <div class="grid-2">
+            <h3>Specialties${info(TEXT.specialties, "Specialties")}</h3>
+            <p class="muted">Academics, Craft, Performance and Science each get a free specialty once they have a dot.
+              Then everyone picks one more for any skill with dots.</p>
+            <div class="grid-3">
               ${FREE_SPECIALTY_SKILLS.filter(withDots).map((s) =>
-                textField({ id: `v-spec-${s}`, label: `${s} specialty`, value: state.specialties[s] || "", max: 60, required: true })).join("")}
-              ${selectField({ id: "v-free-skill", label: "Extra specialty: skill", value: state.freeSpecialtySkill,
-                options: ALL_SKILLS.filter(withDots) })}
-              ${textField({ id: "v-free-spec", label: "Extra specialty", value: state.freeSpecialty, max: 60, required: true })}
+                specialtyField(`v-spec-${s}`, s, state.specialties[s] || "", state.specOther[s], `${s} specialty`)).join("")}
+            </div>
+            <div class="grid-2">
+              ${selectField({ id: "v-free-skill", label: "Extra specialty: which skill", value: state.freeSpecialtySkill,
+                options: freeSkills, tip: TEXT.freeSpecialty })}
+              ${state.freeSpecialtySkill
+                ? specialtyField("v-free-spec", state.freeSpecialtySkill, state.freeSpecialty, state.freeOther, "Extra specialty")
+                : `<p class="field-note">Pick a skill first.</p>`}
             </div>` : ""}`;
       },
       onInput(e) {
-        textInput(e);
-        if (e.target.id?.startsWith("v-spec-")) state.specialties[e.target.id.slice(7)] = e.target.value;
+        if (e.target.id?.startsWith("v-spec-") && e.target.id.endsWith("-text")) {
+          state.specialties[e.target.id.slice(7, -5)] = e.target.value;
+        }
+        if (e.target.id === "v-free-spec-text") state.freeSpecialty = e.target.value;
       },
       onChange(e, rerender) {
-        if (e.target.name === "dist") {
-          state.distribution = e.target.value;
+        const t = e.target;
+        if (t.name === "dist") {
+          state.distribution = t.value;
           for (const s of ALL_SKILLS) state.skills[s] = 0;
           rerender();
         }
-        if (e.target.name?.startsWith("skill-")) { state.skills[e.target.name.slice(6)] = Number(e.target.value); rerender(); }
-        if (e.target.id === "v-free-skill") state.freeSpecialtySkill = e.target.value;
+        if (t.name?.startsWith("skill-")) {
+          state.skills[t.name.slice(6)] = Number(t.value);
+          if (state.freeSpecialtySkill && !state.skills[state.freeSpecialtySkill]) state.freeSpecialtySkill = "";
+          rerender();
+        }
+        if (t.id === "v-free-skill") {
+          state.freeSpecialtySkill = t.value; state.freeSpecialty = ""; state.freeOther = false; rerender();
+        }
+        if (t.id === "v-free-spec") {
+          state.freeOther = t.value === OTHER;
+          state.freeSpecialty = state.freeOther ? "" : t.value;
+          rerender();
+        }
+        if (t.id?.startsWith("v-spec-") && t.tagName === "SELECT") {
+          const skill = t.dataset.spec;
+          state.specOther[skill] = t.value === OTHER;
+          state.specialties[skill] = state.specOther[skill] ? "" : t.value;
+          rerender();
+        }
       },
       validate() {
         const dist = SKILL_DISTRIBUTIONS[state.distribution];
@@ -183,8 +262,8 @@ export function startVtmCreator(root, session) {
           || Object.keys(have).find((lvl) => !dist.spread[lvl]);
         if (wrong) return `Place exactly: ${Object.entries(dist.spread).sort((a, b) => b[0] - a[0]).map(([l, n]) => `${n} at ${l}`).join(", ")}.`;
         const missing = FREE_SPECIALTY_SKILLS.find((s) => state.skills[s] > 0 && !(state.specialties[s] || "").trim());
-        if (missing) return `Add a specialty for ${missing}.`;
-        if (!state.freeSpecialtySkill || !state.freeSpecialty.trim()) return "Pick the extra specialty.";
+        if (missing) return `Choose a specialty for ${missing}.`;
+        if (!state.freeSpecialtySkill || !state.freeSpecialty.trim()) return "Choose the extra specialty.";
         return "";
       },
     },
@@ -197,20 +276,17 @@ export function startVtmCreator(root, session) {
           return;
         }
         const options = clanDisciplines();
+        const cards = (exclude) => options.filter((d) => d !== exclude).map((d) => ({ value: d, title: d, text: DISCIPLINE_HELP[d] }));
         body.innerHTML = `
-          <h2>Disciplines</h2>
+          <h2>Disciplines${info(TEXT.disciplines, "Disciplines")}</h2>
           <p class="muted">${state.clan === "caitiff" ? "Caitiff can choose any two." : `In-clan for ${esc(clan().name)}: ${options.map(esc).join(", ")}.`}
-            One at ••, one at •.</p>
-          <div class="grid-2">
-            ${selectField({ id: "v-primary", label: "First Discipline (••)", value: state.primary,
-              options: options.filter((d) => d !== state.secondary).map((d) => [d, `${d} — ${DISCIPLINE_TEXT[d]}`]) })}
-            ${selectField({ id: "v-secondary", label: "Second Discipline (•)", value: state.secondary,
-              options: options.filter((d) => d !== state.primary).map((d) => [d, `${d} — ${DISCIPLINE_TEXT[d]}`]) })}
-          </div>`;
+            Your first one starts at 2 dots, the second at 1 dot.</p>
+          ${radioCards("primary", "First Discipline (2 dots)", cards(state.secondary), state.primary)}
+          ${radioCards("secondary", "Second Discipline (1 dot)", cards(state.primary), state.secondary)}`;
       },
       onChange(e, rerender) {
-        if (e.target.id === "v-primary") { state.primary = e.target.value; rerender(); }
-        if (e.target.id === "v-secondary") { state.secondary = e.target.value; rerender(); }
+        if (e.target.name === "primary") { state.primary = e.target.value; rerender(); }
+        if (e.target.name === "secondary") { state.secondary = e.target.value; rerender(); }
       },
       validate: () => (isThin() || (state.primary && state.secondary) ? "" : "Choose two Disciplines."),
     },
@@ -221,17 +297,18 @@ export function startVtmCreator(root, session) {
         const p = PREDATORS[state.predator];
         const discOptions = p ? p.disciplines.filter((d) => d !== p.tremereOnly || state.clan === "tremere") : [];
         body.innerHTML = `
-          <h2>Predator type</h2>
-          <p class="muted">How you hunt. It adds a specialty, a Discipline dot, and may change Humanity.</p>
+          <h2>Predator type${info(TEXT.predator, "Predator type")}</h2>
+          <p class="muted">How you hunt. It adds a specialty, one Discipline dot, and may change Humanity.</p>
           ${radioCards("predator", "Choose how you feed", Object.entries(PREDATORS).map(([value, pr]) => ({
             value, title: pr.name, text: pr.blurb,
-            extra: `${pr.humanity ? `Humanity ${pr.humanity > 0 ? "+" : ""}${pr.humanity} · ` : ""}${pr.potency ? "Blood Potency +1 · " : ""}${esc(pr.gains)}`,
+            extra: `${pr.humanity ? `Humanity ${pr.humanity > 0 ? "+" : ""}${pr.humanity}. ` : ""}${pr.potency ? "Blood Potency +1. " : ""}You also get: ${esc(pr.gains)}`,
           })), state.predator)}
           ${p ? `
             <div class="grid-2">
-              ${selectField({ id: "v-pred-spec", label: "Specialty", value: state.predatorSpecialty, options: p.specialties })}
+              ${selectField({ id: "v-pred-spec", label: "Specialty", value: state.predatorSpecialty, options: p.specialties, tip: TEXT.specialties })}
               ${isThin() ? `<p class="locked">Thin-bloods take no Discipline dot here.</p>`
-                : selectField({ id: "v-pred-disc", label: "Discipline (+•)", value: state.predatorDiscipline, options: discOptions })}
+                : selectField({ id: "v-pred-disc", label: "Discipline (+1 dot)", value: state.predatorDiscipline,
+                  options: discOptions.map((d) => [d, d]), tip: discOptions.map((d) => `${d}: ${DISCIPLINE_HELP[d]}`).join(" ") })}
             </div>` : ""}`;
       },
       onChange(e, rerender) {
@@ -255,33 +332,24 @@ export function startVtmCreator(root, session) {
     {
       title: "Advantages & Flaws",
       render(body) {
-        const used = (list) => list.reduce((s, r) => s + (r.name.trim() ? r.dots : 0), 0);
-        const rows = (kind, list) => list.map((r, i) => `
-          <div class="adv-row">
-            <input type="text" aria-label="${kind} name" data-adv="${kind}" data-i="${i}" data-prop="name" value="${esc(r.name)}" maxlength="60"
-              placeholder="${kind === "advantages" ? "e.g. Resources, Haven, Allies" : "e.g. Enemy, Dark Secret"}">
-            <select aria-label="${kind} dots" data-adv="${kind}" data-i="${i}" data-prop="dots">
-              ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${r.dots === n ? "selected" : ""}>${dotsText(n)}</option>`).join("")}
-            </select>
-            <button type="button" class="btn btn--small btn--ghost" data-remove="${kind}" data-i="${i}" aria-label="Remove">×</button>
-          </div>`).join("");
+        const badge = (used, total) => `<span class="pool" data-state="${used === total ? "done" : used > total ? "over" : "open"}">${used} of ${total} points</span>`;
         body.innerHTML = `
           <h2>Advantages &amp; Flaws</h2>
           <p class="muted">${esc(PREDATORS[state.predator].name)} already gives you: ${esc(PREDATORS[state.predator].gains)} These don't count below.</p>
           <div class="grid-2">
             <section>
-              <h3>Advantages <span class="pool" data-state="${used(state.advantages) === era().advantages ? "done" : used(state.advantages) > era().advantages ? "over" : "open"}">${used(state.advantages)} / ${era().advantages}</span></h3>
-              ${rows("advantages", state.advantages)}
-              <button type="button" class="btn btn--small" data-add="advantages">+ Add advantage</button>
+              <h3>Advantages ${badge(advUsed(state.advantages), era().advantages)}${info(TEXT.advantages, "Advantages")}</h3>
+              ${state.advantages.map((r, i) => advRow("advantages", r, i)).join("")}
+              <button type="button" class="btn btn--small" data-add="advantages">Add advantage</button>
             </section>
             <section>
-              <h3>Flaws <span class="pool" data-state="${used(state.flaws) === era().flaws ? "done" : used(state.flaws) > era().flaws ? "over" : "open"}">${used(state.flaws)} / ${era().flaws}</span></h3>
-              ${rows("flaws", state.flaws)}
-              <button type="button" class="btn btn--small" data-add="flaws">+ Add flaw</button>
+              <h3>Flaws ${badge(advUsed(state.flaws), era().flaws)}${info(TEXT.flaws, "Flaws")}</h3>
+              ${state.flaws.map((r, i) => advRow("flaws", r, i)).join("")}
+              <button type="button" class="btn btn--small" data-add="flaws">Add flaw</button>
             </section>
           </div>`;
         body.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => {
-          state[b.dataset.add].push({ name: "", dots: 1 }); this.render(body);
+          state[b.dataset.add].push({ name: "", custom: "", dots: 1 }); this.render(body);
         }));
         body.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
           state[b.dataset.remove].splice(Number(b.dataset.i), 1); this.render(body);
@@ -289,19 +357,23 @@ export function startVtmCreator(root, session) {
       },
       onInput(e) {
         const { adv, i, prop } = e.target.dataset;
-        if (adv && prop === "name") state[adv][Number(i)].name = e.target.value;
+        if (adv && prop === "custom") state[adv][Number(i)].custom = e.target.value;
       },
       onChange(e, rerender) {
         const { adv, i, prop } = e.target.dataset;
-        if (adv) {
-          state[adv][Number(i)][prop] = prop === "dots" ? Number(e.target.value) : e.target.value;
-          rerender();
+        if (!adv || prop === "custom") return;
+        const row = state[adv][Number(i)];
+        if (prop === "dots") row.dots = Number(e.target.value);
+        if (prop === "name") {
+          row.name = e.target.value;
+          const allowed = (adv === "advantages" ? ADVANTAGES : FLAWS)[row.name]?.dots;
+          if (allowed && !allowed.includes(row.dots)) row.dots = allowed[0];
         }
+        rerender();
       },
       validate() {
-        const used = (list) => list.reduce((s, r) => s + (r.name.trim() ? r.dots : 0), 0);
-        if (used(state.advantages) !== era().advantages) return `Spend exactly ${era().advantages} points on Advantages.`;
-        if (used(state.flaws) !== era().flaws) return `Take exactly ${era().flaws} points of Flaws.`;
+        if (advUsed(state.advantages) !== era().advantages) return `Spend exactly ${era().advantages} points on Advantages.`;
+        if (advUsed(state.flaws) !== era().flaws) return `Take exactly ${era().flaws} points of Flaws.`;
         return "";
       },
     },
@@ -311,26 +383,26 @@ export function startVtmCreator(root, session) {
       render(body) {
         body.innerHTML = `
           <h2>Convictions &amp; Touchstones</h2>
-          <p class="muted">One to three moral lines the character won't cross, each tied to a mortal Touchstone who embodies it.</p>
+          <p class="muted">One to three moral lines the character won't cross, each tied to a mortal Touchstone who stands for it.</p>
           ${state.convictions.map((c, i) => `
             <div class="grid-2 conviction">
-              <div class="field"><label for="conv-${i}">Conviction ${i + 1}</label>
+              <div class="field"><label for="conv-${i}">Conviction ${i + 1}${info(TEXT.convictions, "Conviction")}</label>
                 <input type="text" id="conv-${i}" data-conv="${i}" data-prop="conviction" value="${esc(c.conviction)}" maxlength="200"></div>
-              <div class="field"><label for="touch-${i}">Touchstone ${i + 1}</label>
+              <div class="field"><label for="touch-${i}">Touchstone ${i + 1}${info(TEXT.touchstones, "Touchstone")}</label>
                 <input type="text" id="touch-${i}" data-conv="${i}" data-prop="touchstone" value="${esc(c.touchstone)}" maxlength="200"
                   placeholder="Name, and who they are"></div>
             </div>`).join("")}
-          ${state.convictions.length < 3 ? `<button type="button" class="btn btn--small" id="add-conv">+ Add conviction</button>` : ""}
+          ${state.convictions.length < 3 ? `<button type="button" class="btn btn--small" id="add-conv">Add conviction</button>` : ""}
           ${textField({ id: "v-lore", label: "Backstory", value: state.lore, max: 4000, type: "textarea" })}
           <label class="toggle"><input type="checkbox" id="v-share" ${state.shareLore ? "checked" : ""}>
             Share the backstory with the coterie (the Storyteller always sees it)</label>
           ${review([
-            ["Name", esc([state.name, state.concept].filter(Boolean).join(" — "))],
-            ["Clan", esc(`${clan().name}, ${state.generation}th generation, Blood Potency ${bloodPotency(state.generation, state.predator)}`)],
-            ["Sire / sect", esc([state.sire, state.sect].filter(Boolean).join(" · "))],
+            ["Name", esc([state.name, state.concept].filter(Boolean).join(", "))],
+            ["Clan", esc(`${clan().name}, ${ordinal(state.generation)} generation, Blood Potency ${bloodPotency(state.generation, state.predator)}`)],
+            ["Sire / sect", esc([state.sire, state.sect].filter(Boolean).join(", "))],
             ["Attributes", esc(VTM_ATTRIBUTES.map((a) => `${cap(a)} ${state.attributes[a]}`).join(", "))],
             ["Disciplines", esc(disciplineLevels().map(([d, l]) => `${d} ${l}`).join(", ") || "none")],
-            ["Predator", esc(`${PREDATORS[state.predator].name} — ${state.predatorSpecialty}`)],
+            ["Predator", esc(`${PREDATORS[state.predator].name}, ${state.predatorSpecialty}`)],
             ["Humanity", humanity()],
           ])}`;
         body.querySelector("#add-conv")?.addEventListener("click", () => {
@@ -364,10 +436,10 @@ export function startVtmCreator(root, session) {
     root, steps,
     async onFinish() {
       const filled = state.convictions.filter((c) => c.conviction.trim());
-      const list = (rows) => rows.filter((r) => r.name.trim()).map((r) => `${r.name.trim()} ${dotsText(r.dots)}`).join(", ");
+      const list = (rows) => rows.filter(advName).map((r) => `${advName(r)} ${r.dots}`).join(", ");
       const { char_id } = await createVtmCharacter({
         session_id: session.session_id, name: state.name.trim(),
-        age: state.age ? Number(state.age) : null, gender: state.gender.trim(), lore: state.lore.trim(),
+        age: state.age ? Number(state.age) : null, gender: state.gender, lore: state.lore.trim(),
         clan: state.clan, concept: state.concept.trim(), ambition: state.ambition.trim(), desire: state.desire.trim(),
         sect: state.sect, sire: state.sire.trim(), generation: state.generation,
         predator_type: state.predator, humanity: humanity(), attributes: state.attributes,
