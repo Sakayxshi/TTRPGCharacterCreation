@@ -1,39 +1,9 @@
--- =====================================================================
--- TTRPG Forge - procedures: the only way users can WRITE data
--- Run AFTER 04_views.sql:   mariadb -u root -p < sql/05_procedures.sql
---
--- Users have no INSERT/UPDATE/DELETE on any table. Every change goes
--- through one of these procedures. They run as forge_owner
--- (SQL SECURITY DEFINER) and check WHO is calling via my_user_id(),
--- which reads USER() - the account that actually logged in.
---
--- forge_user already has EXECUTE on the whole schema (03), so every
--- procedure below is callable without any new GRANT.
---
--- Procedures:
---   create_session(name, game_type)        -> returns join_code
---   join_session(join_code)
---   create_witcher_character(...)          -> returns char_id
---   set_witcher_skill(char_id, skill, level)
---   create_vtm_character(...)              -> returns char_id
---   set_vtm_skill(char_id, skill, level, specialty)
---   set_vtm_discipline(char_id, discipline, level)
---   create_cyberpunk_character(...)        -> returns char_id
---   set_cyberpunk_skill(char_id, skill, level)
---   set_lore_visible(char_id, visible)
---   set_cyberpunk_visibility(char_id, show_name, show_handle)
--- =====================================================================
-
 USE ttrpg_forge;
 
--- The definer must be allowed to execute its own routines (see 03).
 GRANT EXECUTE ON ttrpg_forge.* TO 'forge_owner'@'localhost';
 
 DELIMITER //
 
--- ---------------------------------------------------------------------
--- my_user_id(): user_id of the logged-in account, or an error
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     FUNCTION my_user_id() RETURNS INT
@@ -50,14 +20,6 @@ BEGIN
     RETURN v_id;
 END //
 
-
--- ---------------------------------------------------------------------
--- create_session: the caller becomes GM. Max 3 hosted sessions.
--- The join code is 6 characters from a 32-character alphabet without
--- look-alikes (no I/O/0/1), built from RANDOM_BYTES (cryptographically
--- secure, unlike RAND()). 32 divides 256, so every character is equally
--- likely.
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE create_session(IN p_name VARCHAR(100),
@@ -92,10 +54,6 @@ BEGIN
     SELECT LAST_INSERT_ID() AS session_id, v_code AS join_code;
 END //
 
-
--- ---------------------------------------------------------------------
--- join_session: become a player via the join code. Max 3 joined.
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE join_session(IN p_code CHAR(6))
@@ -126,14 +84,6 @@ BEGIN
     SELECT v_session AS session_id;
 END //
 
-
--- ---------------------------------------------------------------------
--- create_witcher_character: parent row + child row in ONE transaction,
--- so a character can never exist without its Witcher data (this is
--- where total participation of the ISA hierarchy is enforced).
--- Rulebook checks: only witchers can be Witchers (and vice versa);
--- only humans and elves can be mages or priests.
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE create_witcher_character(
@@ -181,8 +131,6 @@ BEGIN
 
     START TRANSACTION;
 
-    -- fk_char_player rejects this if the caller is not a player here;
-    -- uq_one_char_per_session rejects a second character.
     INSERT INTO characters (owner_id, session_id, name, age, gender, lore)
     VALUES (v_me, p_session_id, p_name, p_age, p_gender, p_lore);
     SET v_char_id = LAST_INSERT_ID();
@@ -199,10 +147,6 @@ BEGIN
     SELECT v_char_id AS char_id;
 END //
 
-
--- ---------------------------------------------------------------------
--- set_witcher_skill: add or change a skill on MY Witcher character
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE set_witcher_skill(IN p_char_id INT,
@@ -220,10 +164,6 @@ BEGIN
     ON DUPLICATE KEY UPDATE level = VALUES(level);
 END //
 
-
--- ---------------------------------------------------------------------
--- set_lore_visible: the owner decides whether the party sees the lore
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE set_lore_visible(IN p_char_id INT, IN p_visible BOOLEAN)
@@ -240,11 +180,6 @@ BEGIN
     END IF;
 END //
 
--- ---------------------------------------------------------------------
--- set_cyberpunk_visibility: the owner decides whether the party sees the
--- real name, the handle, or both. Hiding both is refused here with a
--- clear message; the CHECK constraint chk_cp_shown would refuse it too.
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE set_cyberpunk_visibility(IN p_char_id INT, IN p_show_name BOOLEAN,
@@ -264,18 +199,6 @@ BEGIN
     WHERE char_id = p_char_id;
 END //
 
--- =====================================================================
--- VAMPIRE: THE MASQUERADE
--- =====================================================================
-
--- ---------------------------------------------------------------------
--- create_vtm_character: parent + child row in ONE transaction.
--- Rulebook checks done here, in the database:
---   * attributes follow the V5 spread: one at 4, three at 3, four at 2,
---     one at 1
---   * thin-bloods are 14th-16th generation, everyone else 10th-13th
---   * Blood Potency follows from generation (+1 for Blood Leeches)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE create_vtm_character(
@@ -306,7 +229,6 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Not a Vampire session';
     END IF;
 
-    -- the attribute spread, written as a sorted string: 4,3,3,3,2,2,2,2,1
     SELECT GROUP_CONCAT(a ORDER BY a DESC) INTO v_spread FROM (
         SELECT p_str AS a UNION ALL SELECT p_dex UNION ALL SELECT p_sta
         UNION ALL SELECT p_cha UNION ALL SELECT p_man UNION ALL SELECT p_com
@@ -356,7 +278,6 @@ BEGIN
     SELECT v_char_id AS char_id;
 END //
 
-
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE set_vtm_skill(IN p_char_id INT, IN p_skill VARCHAR(30),
@@ -372,7 +293,6 @@ BEGIN
     ON DUPLICATE KEY UPDATE level = VALUES(level), specialty = VALUES(specialty);
 END //
 
-
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
     PROCEDURE set_vtm_discipline(IN p_char_id INT, IN p_discipline VARCHAR(30),
@@ -387,11 +307,6 @@ BEGIN
     VALUES (p_char_id, p_discipline, p_level)
     ON DUPLICATE KEY UPDATE level = VALUES(level);
 END //
-
-
--- =====================================================================
--- CYBERPUNK 2020
--- =====================================================================
 
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'
@@ -452,7 +367,6 @@ BEGIN
     COMMIT;
     SELECT v_char_id AS char_id;
 END //
-
 
 CREATE OR REPLACE
     DEFINER = 'forge_owner'@'localhost'

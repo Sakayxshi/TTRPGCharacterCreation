@@ -1,26 +1,7 @@
--- =====================================================================
--- TTRPG Forge - seed data
--- Run AFTER 01_schema.sql:   mariadb -u root -p < sql/02_seed.sql
---
--- Part 1: reference data - skill and discipline lists from the three
---         rulebooks (Witcher TRPG, Vampire: The Masquerade 5th edition,
---         Cyberpunk 2020)
--- Part 2: demo data - 4 users, 3 sessions, 3 characters - chosen so that
---         every access-control rule has someone to test it on:
---   gm_vesemir       GM of the Witcher AND the Vampire session
---   player_ciri      player in all three; characters in Witcher + Vampire,
---                    none yet in Cyberpunk ("no character" state)
---   player_lambert   player in Witcher, but GM of the Cyberpunk session
---   outsider_zoltan  in no session at all - should see nothing
--- =====================================================================
-
 USE ttrpg_forge;
 
--- ---------------------------------------------------------------------
--- Part 1: Witcher skills  (cost 2 = "difficult skill" in the rulebook)
--- ---------------------------------------------------------------------
 INSERT INTO witcher_skills (skill_name, base_stat, cost) VALUES
-    -- Intelligence
+
     ('Awareness',               'int',  1),
     ('Business',                'int',  1),
     ('Deduction',               'int',  1),
@@ -34,7 +15,7 @@ INSERT INTO witcher_skills (skill_name, base_stat, cost) VALUES
     ('Tactics',                 'int',  2),
     ('Teaching',                'int',  1),
     ('Wilderness Survival',     'int',  1),
-    -- Reflex
+
     ('Brawling',                'ref',  1),
     ('Dodge/Escape',            'ref',  1),
     ('Melee',                   'ref',  1),
@@ -43,16 +24,16 @@ INSERT INTO witcher_skills (skill_name, base_stat, cost) VALUES
     ('Small Blades',            'ref',  1),
     ('Staff/Spear',             'ref',  1),
     ('Swordsmanship',           'ref',  1),
-    -- Dexterity
+
     ('Archery',                 'dex',  1),
     ('Athletics',               'dex',  1),
     ('Crossbow',                'dex',  1),
     ('Sleight of Hand',         'dex',  1),
     ('Stealth',                 'dex',  1),
-    -- Body
+
     ('Physique',                'body', 1),
     ('Endurance',               'body', 1),
-    -- Empathy
+
     ('Charisma',                'emp',  1),
     ('Deceit',                  'emp',  1),
     ('Fine Arts',               'emp',  1),
@@ -63,7 +44,7 @@ INSERT INTO witcher_skills (skill_name, base_stat, cost) VALUES
     ('Persuasion',              'emp',  1),
     ('Performance',             'emp',  1),
     ('Seduction',               'emp',  1),
-    -- Craft
+
     ('Alchemy',                 'cra',  2),
     ('Crafting',                'cra',  2),
     ('Disguise',                'cra',  1),
@@ -71,7 +52,7 @@ INSERT INTO witcher_skills (skill_name, base_stat, cost) VALUES
     ('Forgery',                 'cra',  1),
     ('Pick Lock',               'cra',  1),
     ('Trap Crafting',           'cra',  2),
-    -- Will
+
     ('Courage',                 'will', 1),
     ('Hex Weaving',             'will', 2),
     ('Intimidation',            'will', 1),
@@ -79,21 +60,17 @@ INSERT INTO witcher_skills (skill_name, base_stat, cost) VALUES
     ('Resist Magic',            'will', 2),
     ('Resist Coercion',         'will', 1),
     ('Ritual Crafting',         'will', 2),
-    -- Defining skills: each profession has exactly one, only it can take it
-    ('Busking',                 'emp',  1),   -- Bard
-    ('Patch Job',               'cra',  1),   -- Craftsman
-    ('Practiced Paranoia',      'int',  1),   -- Criminal
-    ('Healing Hands',           'cra',  1),   -- Doctor
-    ('Magic Training',          'int',  1),   -- Mage
-    ('Tough As Nails',          'body', 1),   -- Man at Arms
-    ('Well Traveled',           'int',  1),   -- Merchant
-    ('Initiate of the Gods',    'emp',  1),   -- Priest
-    ('Witcher Training',        'int',  1);   -- Witcher
 
+    ('Busking',                 'emp',  1),
+    ('Patch Job',               'cra',  1),
+    ('Practiced Paranoia',      'int',  1),
+    ('Healing Hands',           'cra',  1),
+    ('Magic Training',          'int',  1),
+    ('Tough As Nails',          'body', 1),
+    ('Well Traveled',           'int',  1),
+    ('Initiate of the Gods',    'emp',  1),
+    ('Witcher Training',        'int',  1);
 
--- ---------------------------------------------------------------------
--- Part 1b: Vampire: The Masquerade (V5) reference data
--- ---------------------------------------------------------------------
 INSERT INTO vtm_skills (skill_name, category) VALUES
     ('Athletics', 'physical'), ('Brawl', 'physical'), ('Craft', 'physical'),
     ('Drive', 'physical'), ('Firearms', 'physical'), ('Larceny', 'physical'),
@@ -118,11 +95,6 @@ INSERT INTO vtm_clan_disciplines (clan, discipline) VALUES
     ('tremere', 'Auspex'),     ('tremere', 'Blood Sorcery'),('tremere', 'Dominate'),
     ('ventrue', 'Dominate'),   ('ventrue', 'Fortitude'),    ('ventrue', 'Presence');
 
-
--- ---------------------------------------------------------------------
--- Part 1c: Cyberpunk 2020 reference data (master skill list)
--- 'special' = the role's Special Ability
--- ---------------------------------------------------------------------
 INSERT INTO cyberpunk_skills (skill_name, stat) VALUES
     ('Authority', 'special'), ('Charismatic Leadership', 'special'), ('Combat Sense', 'special'),
     ('Credibility', 'special'), ('Family', 'special'), ('Interface', 'special'),
@@ -154,11 +126,6 @@ INSERT INTO cyberpunk_skills (skill_name, stat) VALUES
     ('Pharmaceuticals', 'tech'), ('Pick Lock', 'tech'), ('Pick Pocket', 'tech'),
     ('Play Instrument', 'tech'), ('Weaponsmith', 'tech');
 
-
--- ---------------------------------------------------------------------
--- Part 2: demo data
--- IDs are written out explicitly so the rows below can refer to them.
--- ---------------------------------------------------------------------
 INSERT INTO users (user_id, username) VALUES
     (1, 'gm_vesemir'),
     (2, 'player_ciri'),
@@ -171,18 +138,18 @@ INSERT INTO game_sessions (session_id, join_code, game_type, session_name, gm_id
     (3, 'CHGNYT', 'vtm',       'Chicago by Night',      1);
 
 INSERT INTO session_players (user_id, session_id) VALUES
-    (2, 1),   -- Ciri plays in the Witcher session
-    (3, 1),   -- Lambert plays in the Witcher session ...
-    (2, 2),   -- ... while Ciri also plays in Lambert's Cyberpunk session
-    (2, 3);   -- ... and in Vesemir's Vampire session (her 3rd = the maximum)
+    (2, 1),
+    (3, 1),
+    (2, 2),
+    (2, 3);
 
 INSERT INTO characters (char_id, owner_id, session_id, name, age, gender, lore, lore_visible) VALUES
     (1, 2, 1, 'Zireael', 21, 'female',
         'Trained in a witcher keep, though no mutations. Hunted across the Continent.',
-        FALSE),   -- private lore
+        FALSE),
     (2, 3, 1, 'Lambert', 64, 'male',
         'Sharp-tongued witcher of the Wolf School. Says what everyone else is thinking.',
-        TRUE),    -- shared lore
+        TRUE),
     (3, 2, 3, 'Mara Voss', 34, 'female',
         'Night-shift phlebotomist at Cook County. Embraced in the blood bank fridge room.',
         FALSE);
@@ -206,9 +173,6 @@ INSERT INTO witcher_character_skills (char_id, skill_name, level) VALUES
     (2, 'Monster Lore',   5),
     (2, 'Intimidation',   4);
 
-
--- Ciri's Vampire character: Tremere, Consensualist predator.
--- Attributes follow the V5 spread exactly: one 4, three 3, four 2, one 1.
 INSERT INTO vtm_characters
     (char_id, clan, concept, ambition, desire, sect, sire, generation, blood_potency,
      predator_type, humanity,
@@ -244,4 +208,4 @@ INSERT INTO vtm_character_skills (char_id, skill_name, level, specialty) VALUES
 
 INSERT INTO vtm_character_disciplines (char_id, discipline, level) VALUES
     (3, 'Blood Sorcery', 2),
-    (3, 'Auspex', 2);   -- 1 from clan + 1 from the Consensualist predator type
+    (3, 'Auspex', 2);
