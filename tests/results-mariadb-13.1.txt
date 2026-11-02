@@ -1,0 +1,57 @@
+Security test output on MariaDB 13.1, from the GitHub Actions run:
+https://github.com/Sakayxshi/TTRPGCharacterCreation/actions/runs/41423296629
+
+MariaDB 13.1.2-MariaDB-ubu2604
+PASS  login          player_ciri logs in with the right password
+PASS  login          a wrong password is refused
+PASS  login          forge_owner is locked and can't log in
+PASS  login          forge_admin is locked and can't log in
+PASS  login          demo accounts use the ed25519 plugin
+PASS  login          the users table has no password column
+PASS  role           without SET ROLE a user can read nothing
+PASS  role           with SET ROLE forge_user the views open
+PASS  deny           SELECT on table users is refused
+PASS  deny           SELECT on table game_sessions is refused
+PASS  deny           SELECT on table session_players is refused
+PASS  deny           SELECT on table characters is refused
+PASS  deny           SELECT on table witcher_characters is refused
+PASS  deny           SELECT on table vtm_characters is refused
+PASS  deny           SELECT on table cyberpunk_characters is refused
+PASS  deny           INSERT into characters is refused
+PASS  deny           UPDATE on users is refused
+PASS  deny           a player can't call register_user (DENY EXECUTE)
+PASS  deny           the lookup tables stay readable
+PASS  views          me shows the logged-in user only
+PASS  views          Ciri sees her 3 games
+PASS  views          Zoltan (in no game) sees 0 games
+PASS  views          Zoltan sees no characters at all
+PASS  views          Ciri's full sheets are only her own two
+PASS  views          Ciri gets no full sheet for Lambert
+PASS  views          the GM gets every full sheet in his games
+PASS  views          Ciri can read Lambert's shared backstory
+PASS  views          Lambert can't read Ciri's private backstory
+PASS  views          the GM reads the private backstory
+PASS  register       forge_registrar can create a new account
+PASS  register       the new account logs in and sees itself
+PASS  register       the new account is ed25519 too
+PASS  register       a bad username is refused
+PASS  register       a name with quotes (SQL injection) is refused
+PASS  register       a short password is refused
+PASS  register       a refused sign-up leaves no account behind
+PASS  register       forge_registrar can't read any data
+PASS  rules          joining with a wrong code is refused
+PASS  rules          the GM can't join his own game
+PASS  rules          joining the same game twice is refused
+PASS  rules          the GM can't make a character in his own game
+PASS  rules          a human can't be a Witcher
+PASS  rules          gender must be male or female
+PASS  rules          a wrong Vampire attribute spread is refused
+PASS  rules          changing someone else's backstory is refused
+PASS  cyberpunk      hiding both name and handle is refused
+PASS  cyberpunk      a character with a hidden real name is saved
+PASS  cyberpunk      another player sees the handle, not the name
+PASS  cyberpunk      the GM sees the real name
+PASS  cyberpunk      the owner sees the real name
+PASS  schema         CHECK refuses a bad username even for root
+PASS  schema         CHECK refuses a Witcher stat above 13
+52 passed, 0 failed
