@@ -1,0 +1,37 @@
+name: Database security tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start MariaDB 13.1 and load sql/01 to sql/05
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait
+
+      - name: Server version
+        run: docker compose exec -T db mariadb --version
+
+      - name: Run the security tests
+        run: |
+          set -o pipefail
+          docker compose exec -T db bash /tests/security_tests.sh | tee test-results.txt
+
+      - name: Keep the test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.txt
+
+      - name: Server log (only if something failed)
+        if: failure()
+        run: docker compose logs db
