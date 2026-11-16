@@ -1,0 +1,15 @@
+# Server settings for the Docker setup (mounted into /etc/mysql/conf.d).
+# TLS needs no setting here: MariaDB 11.4 and later turn it on by default
+# with a self-generated certificate, and every user account REQUIREs it.
+
+[mariadb]
+# Block an account after 5 wrong passwords in a row, until an admin
+# runs FLUSH PRIVILEGES. A correct login resets the count.
+max_password_errors = 5
+
+# Audit log: every connection attempt (including failed ones) and every
+# query, with its result code, so refused queries leave a trace.
+plugin_load_add = server_audit
+loose_server_audit_logging = ON
+loose_server_audit_events = CONNECT,QUERY
+loose_server_audit_file_path = /var/lib/mysql/server_audit.log

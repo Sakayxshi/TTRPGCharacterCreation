@@ -54,11 +54,11 @@ BEGIN
             SET MESSAGE_TEXT = 'Password must be at least 10 characters';
     END IF;
 
-    SET v_account = CONCAT(QUOTE(p_username), '@''localhost''');
+    SET v_account = CONCAT(QUOTE(p_username), '@''%''');
 
     EXECUTE IMMEDIATE CONCAT('CREATE USER ', v_account,
                              ' IDENTIFIED VIA ed25519 USING PASSWORD(',
-                             QUOTE(p_password), ')');
+                             QUOTE(p_password), ') REQUIRE SSL');
     SET v_created = TRUE;
 
     EXECUTE IMMEDIATE CONCAT('GRANT forge_user TO ', v_account);
@@ -68,22 +68,22 @@ END //
 
 DELIMITER ;
 
-CREATE OR REPLACE USER 'forge_registrar'@'localhost'
-    IDENTIFIED VIA ed25519 USING PASSWORD('demo-registrar-2026');
-GRANT EXECUTE ON PROCEDURE ttrpg_forge.register_user TO 'forge_registrar'@'localhost';
+CREATE OR REPLACE USER 'forge_registrar'@'%'
+    IDENTIFIED VIA ed25519 USING PASSWORD('demo-registrar-2026') REQUIRE SSL;
+GRANT EXECUTE ON PROCEDURE ttrpg_forge.register_user TO 'forge_registrar'@'%';
 
 GRANT EXECUTE ON PROCEDURE ttrpg_forge.register_user TO 'forge_admin'@'localhost';
 
 DENY EXECUTE ON PROCEDURE ttrpg_forge.register_user TO forge_user;
 
-CREATE OR REPLACE USER 'gm_vesemir'@'localhost'
-    IDENTIFIED VIA ed25519 USING PASSWORD('demo-vesemir-2026');
-CREATE OR REPLACE USER 'player_ciri'@'localhost'
-    IDENTIFIED VIA ed25519 USING PASSWORD('demo-ciri-2026');
-CREATE OR REPLACE USER 'player_lambert'@'localhost'
-    IDENTIFIED VIA ed25519 USING PASSWORD('demo-lambert-2026');
-CREATE OR REPLACE USER 'outsider_zoltan'@'localhost'
-    IDENTIFIED VIA ed25519 USING PASSWORD('demo-zoltan-2026');
+CREATE OR REPLACE USER 'gm_vesemir'@'%'
+    IDENTIFIED VIA ed25519 USING PASSWORD('demo-vesemir-2026') REQUIRE SSL;
+CREATE OR REPLACE USER 'player_ciri'@'%'
+    IDENTIFIED VIA ed25519 USING PASSWORD('demo-ciri-2026') REQUIRE SSL;
+CREATE OR REPLACE USER 'player_lambert'@'%'
+    IDENTIFIED VIA ed25519 USING PASSWORD('demo-lambert-2026') REQUIRE SSL;
+CREATE OR REPLACE USER 'outsider_zoltan'@'%'
+    IDENTIFIED VIA ed25519 USING PASSWORD('demo-zoltan-2026') REQUIRE SSL;
 
-GRANT forge_user TO 'gm_vesemir'@'localhost', 'player_ciri'@'localhost',
-                    'player_lambert'@'localhost', 'outsider_zoltan'@'localhost';
+GRANT forge_user TO 'gm_vesemir'@'%', 'player_ciri'@'%',
+                    'player_lambert'@'%', 'outsider_zoltan'@'%';

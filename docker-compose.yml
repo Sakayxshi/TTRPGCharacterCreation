@@ -17,6 +17,8 @@ services:
       # Every .sql file here runs once, in name order, when the container is first created
       - ./sql:/docker-entrypoint-initdb.d:ro
       - ./tests:/tests:ro
+      # Server settings: failed-login lockout and the audit log
+      - ./docker/mariadb.cnf:/etc/mysql/conf.d/ttrpg.cnf:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s

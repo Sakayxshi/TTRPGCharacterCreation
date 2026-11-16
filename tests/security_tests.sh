@@ -2,9 +2,8 @@
 # Security tests for the ttrpg_forge database.
 #
 # Logs in as each demo account and checks that what should work works,
-# and that what should be refused is refused. Run it where the MariaDB
-# client can reach the server through its local socket, because every
-# account is 'name'@'localhost'. With Docker:
+# and that what should be refused is refused. Users connect over TCP
+# (127.0.0.1), so TLS is part of every test. With Docker:
 #
 #   docker compose exec db bash /tests/security_tests.sh
 #
@@ -15,6 +14,9 @@
 set -u
 
 ROOT_PW="${MARIADB_ROOT_PASSWORD:-}"
+HOST="${TEST_HOST:-127.0.0.1}"
+PORT="${TEST_PORT:-3306}"
+AUDIT_LOG="${AUDIT_LOG:-/var/lib/mysql/server_audit.log}"
 DB="ttrpg_forge"
 RUN_ID="$RANDOM$RANDOM"
 PASS=0
@@ -26,19 +28,25 @@ GREEN=$'\e[32m'; RED=$'\e[31m'; DIM=$'\e[2m'; OFF=$'\e[0m'
 
 # --- how we talk to the server -------------------------------------------
 
+# root uses the local socket; everyone else comes in over TCP, like the
+# website's backend will
 as_root() {
   mariadb -u root ${ROOT_PW:+-p"$ROOT_PW"} --batch --skip-column-names -e "$1" 2>&1
 }
 
-# as_user USER PASSWORD SQL  - logs in, switches on the forge_user role, runs SQL
-as_user() {
-  mariadb -u "$1" -p"$2" --batch --skip-column-names -e "SET ROLE forge_user; $3" 2>&1
+# login USER PASSWORD SQL  - one TCP connection (TLS is negotiated automatically)
+login() {
+  mariadb -h "$HOST" -P "$PORT" -u "$1" -p"$2" --batch --skip-column-names -e "$3" 2>&1
 }
 
+# as_user USER PASSWORD SQL  - logs in, switches on the forge_user role, runs SQL
+as_user() { login "$1" "$2" "SET ROLE forge_user; $3"; }
+
 # as_user_norole USER PASSWORD SQL  - same, but without switching on the role
-as_user_norole() {
-  mariadb -u "$1" -p"$2" --batch --skip-column-names -e "$3" 2>&1
-}
+as_user_norole() { login "$1" "$2" "$3"; }
+
+# as_registrar SQL  - the account the website uses to sign people up
+as_registrar() { login forge_registrar demo-registrar-2026 "$1"; }
 
 record() {  # record OK|BAD SECTION DESCRIPTION DETAIL
   if [ "$1" = OK ]; then
@@ -73,15 +81,14 @@ CIRI=(player_ciri demo-ciri-2026)
 LAMBERT=(player_lambert demo-lambert-2026)
 VESEMIR=(gm_vesemir demo-vesemir-2026)
 ZOLTAN=(outsider_zoltan demo-zoltan-2026)
-REGISTRAR=(forge_registrar demo-registrar-2026)
 
 echo "MariaDB $(as_root 'SELECT VERSION()')"
 echo
 
 # --- 1. Logging in ----------------------------------------------------------
 S="login"
-expect_value   $S "player_ciri logs in with the right password" "player_ciri@localhost" \
-  "$(as_user_norole "${CIRI[@]}" 'SELECT USER()')"
+expect_value   $S "player_ciri logs in with the right password" "player_ciri" \
+  "$(as_user_norole "${CIRI[@]}" "SELECT SUBSTRING_INDEX(USER(), '@', 1)")"
 expect_error   $S "a wrong password is refused" "access denied" \
   "$(as_user_norole player_ciri wrong-password-1 'SELECT 1')"
 expect_error   $S "forge_owner is locked and can't log in" "locked|access denied" \
@@ -89,7 +96,7 @@ expect_error   $S "forge_owner is locked and can't log in" "locked|access denied
 expect_error   $S "forge_admin is locked and can't log in" "locked|access denied" \
   "$(mariadb -u forge_admin --batch -e 'SELECT 1' 2>&1)"
 expect_value   $S "demo accounts use the ed25519 plugin" "5" \
-  "$(as_root "SELECT COUNT(*) FROM mysql.global_priv WHERE Host='localhost'
+  "$(as_root "SELECT COUNT(*) FROM mysql.global_priv WHERE Host='%'
      AND User IN ('player_ciri','player_lambert','gm_vesemir','outsider_zoltan','forge_registrar')
      AND JSON_VALUE(Priv,'$.plugin') = 'ed25519'")"
 expect_value   $S "the users table has no password column" "0" \
@@ -145,22 +152,22 @@ expect_value   $S "the GM reads the private backstory" "1" \
 S="register"
 NEW1="tester_a_$RUN_ID"; NEW2="tester_b_$RUN_ID"; PW="long-test-password"
 expect_success $S "forge_registrar can create a new account" \
-  "$(mariadb -u "${REGISTRAR[0]}" -p"${REGISTRAR[1]}" --batch -e "CALL $DB.register_user('$NEW1', '$PW')" 2>&1)"
-mariadb -u "${REGISTRAR[0]}" -p"${REGISTRAR[1]}" --batch -e "CALL $DB.register_user('$NEW2', '$PW')" >/dev/null 2>&1
+  "$(as_registrar "CALL $DB.register_user('$NEW1', '$PW')")"
+as_registrar "CALL $DB.register_user('$NEW2', '$PW')" >/dev/null
 expect_value   $S "the new account logs in and sees itself" "$NEW1" \
   "$(as_user "$NEW1" "$PW" "SELECT username FROM $DB.me")"
 expect_value   $S "the new account is ed25519 too" "ed25519" \
   "$(as_root "SELECT JSON_VALUE(Priv,'$.plugin') FROM mysql.global_priv WHERE User='$NEW1'")"
 expect_error   $S "a bad username is refused" "3-32 characters" \
-  "$(mariadb -u "${REGISTRAR[0]}" -p"${REGISTRAR[1]}" --batch -e "CALL $DB.register_user('Bad Name!', '$PW')" 2>&1)"
+  "$(as_registrar "CALL $DB.register_user('Bad Name!', '$PW')")"
 expect_error   $S "a name with quotes (SQL injection) is refused" "3-32 characters" \
-  "$(mariadb -u "${REGISTRAR[0]}" -p"${REGISTRAR[1]}" --batch -e "CALL $DB.register_user('x''@''%', '$PW')" 2>&1)"
+  "$(as_registrar "CALL $DB.register_user('x''@''%', '$PW')")"
 expect_error   $S "a short password is refused" "at least 10" \
-  "$(mariadb -u "${REGISTRAR[0]}" -p"${REGISTRAR[1]}" --batch -e "CALL $DB.register_user('short_pw_$RUN_ID', 'short')" 2>&1)"
+  "$(as_registrar "CALL $DB.register_user('short_pw_$RUN_ID', 'short')")"
 expect_value   $S "a refused sign-up leaves no account behind" "0" \
   "$(as_root "SELECT COUNT(*) FROM mysql.global_priv WHERE User='short_pw_$RUN_ID'")"
 expect_error   $S "forge_registrar can't read any data" "denied" \
-  "$(mariadb -u "${REGISTRAR[0]}" -p"${REGISTRAR[1]}" --batch -e "SELECT * FROM $DB.my_sessions" 2>&1)"
+  "$(as_registrar "SELECT * FROM $DB.my_sessions")"
 
 # --- 6. Game rules inside the procedures ------------------------------------
 S="rules"
@@ -202,6 +209,66 @@ expect_error   $S "CHECK refuses a bad username even for root" "constraint|chk_u
   "$(as_root "INSERT INTO $DB.users (username) VALUES ('Bad Name!')")"
 expect_error   $S "CHECK refuses a Witcher stat above 13" "constraint" \
   "$(as_root "UPDATE $DB.witcher_characters SET stat_luck = 20 WHERE char_id = 1")"
+
+# --- 9. Encrypted connections ----------------------------------------------
+S="tls"
+expect_value   $S "a user's connection is encrypted (TLS)" "1" \
+  "$(as_user_norole "${CIRI[@]}" "SELECT VARIABLE_VALUE LIKE 'TLS%' FROM information_schema.SESSION_STATUS WHERE VARIABLE_NAME = 'Ssl_version'")"
+expect_error   $S "an unencrypted login is refused (REQUIRE SSL)" "access denied" \
+  "$(mariadb -h "$HOST" -P "$PORT" --skip-ssl -u "${CIRI[0]}" -p"${CIRI[1]}" --batch -e 'SELECT 1' 2>&1)"
+expect_value   $S "accounts made by sign-up require TLS too" "1" \
+  "$(as_root "SHOW GRANTS FOR '$NEW1'@'%'" | grep -c 'REQUIRE SSL')"
+
+# --- 10. Locking an account after wrong passwords ---------------------------
+S="lockout"
+NEW3="tester_c_$RUN_ID"
+as_registrar "CALL $DB.register_user('$NEW3', '$PW')" >/dev/null
+expect_value   $S "the server blocks after 5 wrong passwords" "5" \
+  "$(as_root "SELECT @@max_password_errors")"
+for i in 1 2 3 4 5; do login "$NEW3" "wrong-password-$i" "SELECT 1" >/dev/null; done
+expect_error   $S "after 5 wrong passwords even the right one is refused" "blocked|too many|credential" \
+  "$(login "$NEW3" "$PW" "SELECT 1")"
+as_root "FLUSH PRIVILEGES" >/dev/null
+expect_value   $S "an admin's FLUSH PRIVILEGES unblocks it" "$NEW3" \
+  "$(login "$NEW3" "$PW" "SELECT SUBSTRING_INDEX(USER(), '@', 1)")"
+
+# --- 11. Audit log ----------------------------------------------------------
+S="audit"
+expect_value   $S "the server_audit plugin is active" "ACTIVE" \
+  "$(as_root "SELECT PLUGIN_STATUS FROM information_schema.PLUGINS WHERE PLUGIN_NAME = 'SERVER_AUDIT'")"
+if [ -r "$AUDIT_LOG" ]; then
+  expect_value $S "a failed login is in the audit log" "yes" \
+    "$(grep -F ',player_ciri,' "$AUDIT_LOG" | grep -q 'FAILED_CONNECT' && echo yes || echo no)"
+  expect_value $S "a refused query is logged with its error code" "yes" \
+    "$(grep -F ',player_ciri,' "$AUDIT_LOG" | grep -F 'ttrpg_forge.users' | grep -Eq ',[1-9][0-9]*$' && echo yes || echo no)"
+else
+  record BAD $S "audit log readable at $AUDIT_LOG" "file not found"
+fi
+
+# --- 12. How the login methods store a password ------------------------------
+# Two accounts per method, both with the same password. If the stored values
+# are equal, the method uses no salt: identical passwords are visible as such,
+# and one precomputed table cracks them all.
+S="auth-methods"
+as_root "INSTALL SONAME 'auth_parsec'" >/dev/null 2>&1
+SAME="same-password-123"
+for m in mysql_native_password ed25519 parsec; do
+  for x in a b; do
+    as_root "CREATE OR REPLACE USER 'cmp_${m}_$x'@'localhost' IDENTIFIED VIA $m USING PASSWORD('$SAME')" >/dev/null
+  done
+done
+stored() { as_root "SELECT JSON_VALUE(Priv, '$.authentication_string') FROM mysql.global_priv WHERE User = '$1'"; }
+expect_value   $S "mysql_native_password: same password, same stored hash (no salt)" "same" \
+  "$([ "$(stored cmp_mysql_native_password_a)" = "$(stored cmp_mysql_native_password_b)" ] && echo same || echo different)"
+expect_value   $S "mysql_native_password: the hash is just SHA1(SHA1(password))" "1" \
+  "$(as_root "SELECT '$(stored cmp_mysql_native_password_a)' = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('$SAME')))))")"
+expect_value   $S "ed25519: same password, same stored key (no salt)" "same" \
+  "$([ "$(stored cmp_ed25519_a)" = "$(stored cmp_ed25519_b)" ] && echo same || echo different)"
+expect_value   $S "parsec: same password, different stored value (salted)" "different" \
+  "$([ -n "$(stored cmp_parsec_a)" ] && [ "$(stored cmp_parsec_a)" != "$(stored cmp_parsec_b)" ] && echo different || echo same)"
+for m in mysql_native_password ed25519 parsec; do
+  as_root "DROP USER IF EXISTS 'cmp_${m}_a'@'localhost', 'cmp_${m}_b'@'localhost'" >/dev/null
+done
 
 # --- summary ----------------------------------------------------------------
 echo
