@@ -1,5 +1,5 @@
 Security test output on MariaDB 13.1, from the GitHub Actions run:
-https://github.com/Sakayxshi/TTRPGCharacterCreation/actions/runs/41423296629
+https://github.com/Sakayxshi/TTRPGCharacterCreation/actions/runs/43883609925
 
 MariaDB 13.1.2-MariaDB-ubu2604
 PASS  login          player_ciri logs in with the right password
@@ -54,4 +54,17 @@ PASS  cyberpunk      the GM sees the real name
 PASS  cyberpunk      the owner sees the real name
 PASS  schema         CHECK refuses a bad username even for root
 PASS  schema         CHECK refuses a Witcher stat above 13
-52 passed, 0 failed
+PASS  tls            a user's connection is encrypted (TLS)
+PASS  tls            an unencrypted login is refused (REQUIRE SSL)
+PASS  tls            accounts made by sign-up require TLS too
+PASS  lockout        the server blocks after 5 wrong passwords
+PASS  lockout        after 5 wrong passwords even the right one is refused
+PASS  lockout        an admin's FLUSH PRIVILEGES unblocks it
+PASS  audit          the server_audit plugin is active
+PASS  audit          a failed login is in the audit log
+PASS  audit          a refused query is logged with its error code
+PASS  auth-methods   mysql_native_password: same password, same stored hash (no salt)
+PASS  auth-methods   mysql_native_password: the hash is just SHA1(SHA1(password))
+PASS  auth-methods   ed25519: same password, same stored key (no salt)
+PASS  auth-methods   parsec: same password, different stored value (salted)
+65 passed, 0 failed

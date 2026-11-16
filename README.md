@@ -30,20 +30,22 @@ docker compose exec db bash /tests/security_tests.sh
 The last command logs in as each demo account and checks that allowed actions work and forbidden ones are refused. It ends with:
 
 ```
-52 passed, 0 failed
+65 passed, 0 failed
 ```
 
 It exits with an error code if any check fails. The same tests run on GitHub on every push (badge above); the output of a run on **MariaDB 13.1.2** is saved in [`tests/results-mariadb-13.1.txt`](tests/results-mariadb-13.1.txt).
 
 - **Port in use?** The database is published on port **3307**, so it doesn't clash with a MariaDB you already run on 3306. Change `MARIADB_PORT` in `.env` if 3307 is taken.
 - **Start over:** `docker compose down -v` deletes everything; `up` loads it fresh.
-- **Open a shell as a demo user:** `docker compose exec db mariadb -u player_ciri -pdemo-ciri-2026`, then `SET ROLE forge_user;`
+- **Open a shell as a demo user:** `docker compose exec db mariadb -h 127.0.0.1 -u player_ciri -pdemo-ciri-2026`, then `SET ROLE forge_user;`
+- **Read the audit log:** `docker compose exec db tail -n 20 /var/lib/mysql/server_audit.log`
+- **Unblock an account after 5 wrong passwords:** `docker compose exec db mariadb -u root -p -e "FLUSH PRIVILEGES"`
 
-The image is the MariaDB Foundation's 13.1 preview build, `quay.io/mariadb-foundation/mariadb-devel:13.1`. MariaDB 13.1 is needed for `DENY`; to try another image, set `MARIADB_IMAGE` in `.env`.
+The image is the MariaDB Foundation's 13.1 preview build, `quay.io/mariadb-foundation/mariadb-devel:13.1`. MariaDB 13.1 is needed for `DENY`; to try another image, set `MARIADB_IMAGE` in `.env`. Server settings (login lockout, audit log) are in [`docker/mariadb.cnf`](docker/mariadb.cnf).
 
 ### On Windows without Docker
 
-Install MariaDB 13.1, open the "Command Prompt (MariaDB 13.1)" and run `setup.bat` from the project folder. It feeds `sql/01` to `sql/05` to the server and asks for the root password once.
+Install MariaDB 13.1, open the "Command Prompt (MariaDB 13.1)" and run `setup.bat` from the project folder. It feeds `sql/01` to `sql/05` to the server and asks for the root password once. For the login lockout and the audit log, copy the `[mariadb]` lines from `docker/mariadb.cnf` into your server's `my.ini` and restart it.
 
 ### Demo accounts
 
@@ -74,6 +76,9 @@ In Cyberpunk a player can also hide their real name or their handle from the oth
 | MariaDB feature | Where | What it does here |
 |---|---|---|
 | **One MariaDB account per user, ED25519** | `sql/03_accounts.sql` | Signing up creates a real account with `IDENTIFIED VIA ed25519`. The `users` table has no password column, so a copy of our tables holds nothing to crack. |
+| **TLS required** | `sql/03_accounts.sql` | Every user account is created with `REQUIRE SSL`, so an unencrypted login is refused. MariaDB 11.4 and later turn TLS on by default with a self-generated certificate, and the client verifies it using the password, so no certificate files are needed. |
+| **Lockout after wrong passwords** | `docker/mariadb.cnf` | `max_password_errors = 5`: after five wrong passwords in a row an account is blocked, even for the right password, until an admin runs `FLUSH PRIVILEGES`. |
+| **Audit log** | `docker/mariadb.cnf` | The `server_audit` plugin records every login attempt, failed ones included, and every query with its result code, so a refused query leaves a trace with its error number. |
 | **A role with no default** | `sql/03_accounts.sql` | All users get the role `forge_user`, which is off until a session runs `SET ROLE forge_user`. A login alone can read nothing. |
 | **`DENY` (new in 13.1)** | `sql/03_accounts.sql` | The role gets `SELECT, EXECUTE` on the whole schema, then `DENY SELECT` on all 11 private tables and `DENY EXECUTE` on `register_user`. A deny beats the schema-wide grant, so only the lookup tables, views and allowed procedures stay open. |
 | **Locked owner accounts** | `sql/03_accounts.sql` | Views and procedures belong to `forge_owner` and `forge_admin`, which have `ACCOUNT LOCK`: nobody can log in as them. |
@@ -84,7 +89,7 @@ In Cyberpunk a player can also hide their real name or their handle from the oth
 
 ## What the tests check
 
-`tests/security_tests.sh` runs 52 checks in 8 groups, each as the account that would really do it:
+`tests/security_tests.sh` runs 65 checks in 12 groups, each as the account that would really do it:
 
 - **login:** right and wrong passwords, locked accounts refused, every demo account on ED25519, no password column
 - **role:** nothing readable before `SET ROLE`
@@ -94,14 +99,31 @@ In Cyberpunk a player can also hide their real name or their handle from the oth
 - **rules:** wrong join codes, GMs joining their own game, double joins, GM characters, illegal race and profession pairs, a wrong Vampire attribute spread, changing someone else's character
 - **cyberpunk:** a hidden real name is hidden from other players but not from the owner or the GM
 - **schema:** `CHECK` constraints refuse bad data even for root
+- **tls:** user connections are encrypted, an unencrypted login is refused, and new accounts require TLS too
+- **lockout:** five wrong passwords block an account, even for the right password, and `FLUSH PRIVILEGES` unblocks it
+- **audit:** the plugin is active, a failed login is logged, and a refused query is logged with its error code
+- **auth-methods:** how `mysql_native_password`, `ed25519` and `parsec` store the same password (see below)
 
-**Proof that `DENY` does the work:** running the same tests against a server without the `DENY` lines (MariaDB 10.11, which has no `DENY`) gives 44 passed and 8 failed, and the 8 failures are exactly the `deny` group. Nothing else stands between a user and the tables.
+**Proof that `DENY` does the work:** running the first 52 checks against a server without the `DENY` lines (MariaDB 10.11, which has no `DENY`) gives 44 passed and 8 failed, and the 8 failures are exactly the `deny` group. Nothing else stands between a user and the tables.
+
+## How the login methods store a password
+
+The test creates two accounts per method, both with the same password, and compares what MariaDB stores (results from MariaDB 13.1.2):
+
+| Method | Same password, same stored value? | What that means |
+|---|---|---|
+| `mysql_native_password` | **yes** | No salt. The stored value is simply `SHA1(SHA1(password))`, which anyone can compute, so one precomputed table cracks every account at once. The hash also works as a credential by itself: whoever steals it can log in without knowing the password. |
+| `ed25519` (used here) | **yes** | Still no salt, so equal passwords are visible as equal. But the server only stores a public key: the password never reaches the server, and a stolen value can't be used to log in. |
+| `parsec` (new in 11.6) | **no** | Salted, with a deliberately slow key derivation, and it keeps ED25519's advantages. Identical passwords look different. |
+
+So ED25519 fixes the worst problem of the old method (a stolen hash logs you in), but not the missing salt. PARSEC fixes both, which makes it the better choice for a new system once the client libraries that connect to it support it.
 
 ## Things we ran into
 
 - **`CREATE OR REPLACE DATABASE` fails with error 1451** when foreign key checks are on, because the old tables are dropped in no particular order. The schema switches the checks off for that one statement only.
 - **A definer needs `EXECUTE` on its own routines.** Views and procedures run as `forge_owner`, so that locked account is granted `EXECUTE` on the schema; otherwise procedures calling `my_user_id()` fail.
 - **`SET DEFAULT ROLE` for another user needs write access to the `mysql` database.** Rather than give `register_user` that, new accounts get no default role, and every session runs `SET ROLE forge_user` itself.
+- **`max_password_errors` also applies to connections from 127.0.0.1.** The test's account is blocked over TCP from inside the server's own container.
 - **Inside a definer object, `USER()` and `CURRENT_USER()` differ.** `CURRENT_USER()` is the definer (`forge_owner`); `USER()` is the account that logged in. The views use `USER()`, which is what makes per-user filtering possible.
 
 ## The database
@@ -120,14 +142,15 @@ In Cyberpunk a player can also hide their real name or their handle from the oth
 | `sql/03_accounts.sql` | Accounts, the role, `DENY` rules, `register_user` |
 | `sql/04_views.sql` | The 12 views users read through |
 | `sql/05_procedures.sql` | The procedures users write through |
-| `tests/security_tests.sh` | The 52 checks |
+| `tests/security_tests.sh` | The 65 checks |
+| `docker/mariadb.cnf` | Server settings: login lockout and audit log |
 | `docker-compose.yml`, `setup.bat` | Two ways to load it |
 
 ## Status
 
-- **Done:** database, accounts and access rules, security tests with automatic runs on GitHub, and the website (home page, lobby, step-by-step creators for all three games, character sheets).
+- **Done:** database, accounts and access rules, TLS requirement, login lockout, audit log, security tests with automatic runs on GitHub, and the website (home page, lobby, step-by-step creators for all three games, character sheets).
 - **In progress:** a Python backend that connects to MariaDB **as the logged-in user**. Until it's finished, the website runs on an in-browser copy of the same rules (`js/api.js` mirrors each view and procedure), which is what the online demo uses.
-- **Planned:** TLS with `REQUIRE SSL`, failed-login lockout (`max_password_errors`), the server audit log, and a comparison of ED25519 with the older `mysql_native_password`.
+- **Planned:** switching user accounts from ED25519 to PARSEC once the backend's database driver supports it.
 
 ## Use of AI
 
