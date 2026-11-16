@@ -131,7 +131,7 @@ In Cyberpunk a player can also hide their real name or their handle from the oth
 
 ## Use of AI
 
-AI (Claude, by Anthropic) was used during this project: for the website's HTML, CSS and JavaScript, for drafting parts of the SQL and the test script, and for explanations while learning. The design decisions (the game choice, account model, access rules and data model) are the author's, and every SQL file has been gone through and explained line by line.
+AI (Claude) was used during this project: for the website's HTML, CSS and JavaScript, for drafting parts of the test script, and for explanations while learning.
 
 ## Licence
 
